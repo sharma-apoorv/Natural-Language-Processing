@@ -273,6 +273,185 @@ def compute_f1_score(classification_scores: np.array, true_labels: np.array):
 
     return 2 * ((precision * recall) / (precision + recall))
 
+def update_word_count(word, word_type, word_freq_dict):
+    
+    if (word, word_type) not in word_freq_dict.keys():
+        word_freq_dict[(word, word_type)] = 0
+    word_freq_dict[(word, word_type)] += 1
+
+def get_clean_tokenized_words(file):
+    # Read the file to analyze
+    with open(file) as f:
+        sentences = f.readlines()
+
+    # tokenize the sentences in the file
+    tokens = []
+    for sentence in sentences:
+        tokens += tokenize(sentence) # Do not want to remove duplicate words, so we have more data
+
+    clean_words = []
+    for word in tokens:
+        if  word and len(word) > 1 and\
+                    (word not in string.punctuation) and\
+                    not is_digit_regex(word):
+                
+                clean_words.append(word.strip())
+    
+    return clean_words
+
+def extract_features(file, bow_word_frequency):
+    processed_words = get_clean_tokenized_words(file)
+    
+    # feature array
+    features = np.zeros((1,3))
+    
+    # bias term
+    features[0,0] = 1
+    
+    for word in processed_words:
+        features[0,1] = bow_word_frequency.get((word, 1), 0) # positive reviews
+        features[0,2] = bow_word_frequency.get((word, 0), 0) # negative reviews
+    
+    return features
+
+def sigmoid(t): 
+    # calculate the sigmoid of z
+    h = 1 / (1+ np.exp(-t))
+    
+    return h
+
+def gradientDescent(x, y, theta, alpha, num_iters, c):
+    # get the number of samples in the training
+    m = x.shape[0]
+    
+    for i in range(0, num_iters):
+        
+        # find linear regression equation value, X and theta
+        z = np.dot(x, theta) #score_LR
+        
+        # get the sigmoid of z
+        h = sigmoid(z) # p_LR(Y=+1 | x; theta)
+        
+        # c is L2 regularizer term
+        J = (-1/m) * ((np.dot(y.T, np.log(h)) + np.dot((1 - y).T, np.log(1-h))) + (c * np.sum(theta)))
+        
+        # update the weights theta
+        theta = theta - (alpha / m) * np.dot((x.T), (h - y))
+   
+    # J = float(J)
+    return J, theta
+
+def predict_sentiment(file, theta, word_freq_dict):
+
+    x = extract_features(file, word_freq_dict)
+
+    # make the prediction for x with learned theta values
+    y_pred = sigmoid(np.dot(x, theta))
+    
+    return y_pred
+
+def test_accuracy(test_x, test_y, word_freq_dict, theta):
+
+    # predict for the test sample with the learned weights for logistics regression
+    for file in test_x:
+        predicted_prob = predict_sentiment(file, theta, word_freq_dict)
+        print(file, predicted_prob)
+    
+    # # assign the probability threshold to class
+    # predicted_labels = np.where(predicted_probs > 0.5, 1, 0)
+    
+    # # calculate the accuracy
+    # print(f"Own implementation of logistic regression accuracy is {len(predicted_labels[predicted_labels == np.array(test_y).reshape(-1,1)]) / len(test_y)*100:.2f}")
+
+
+    # y_hat = []
+    # for file in test_x:
+        
+    #     y_pred = predict_sentiment(file, theta, freqs_dict)
+    #     print(y_pred)
+        
+    #     if y_pred.all() > (0.5, 1, 0):
+           
+    #         y_hat.append(1)
+    #     else:
+            
+    #         y_hat.append(0)
+    # m=len(y_hat)
+    # y_hat=np.array(y_hat)
+    # y_hat=y_hat.reshape(m)
+    # test_y=test_y.reshape(m)
+    
+    # c=y_hat==test_y
+    # j=0
+    # for i in c:
+    #     if i==True:
+    #         j=j+1
+    # accuracy = j/m
+    # return accuracy
+
+def get_bag_of_words(file_list):
+    word_freq_dict = {}
+    for file in file_list:
+        
+        # Read the file to analyze
+        with open(file) as f:
+            sentences = f.readlines()
+
+        # tokenize the sentences in the file
+        tokens = []
+        for sentence in sentences:
+            tokens += tokenize(sentence) # Do not want to remove duplicate words, so we have more data
+        
+        #TODO: Need to remove stop words!!
+        for token in tokens:
+            if  token and len(token) > 1 and\
+                (token not in string.punctuation) and\
+                not is_digit_regex(token):
+                
+                token = token.strip()
+
+                if file.split('/')[1] == 'pos':
+                    update_word_count(token, 1, word_freq_dict)
+                else:
+                    update_word_count(token, 0, word_freq_dict)
+    
+    return word_freq_dict
+
+def binary_logistic_classifier(test_files_list):
+
+    TRAIN_SPLIT = 80 / 100
+    TEST_SPLIT = 1 - TRAIN_SPLIT
+    # TEST_SPLIT = 1/100
+
+    # Note: Pos and Neg not in even proportions! 
+    train_x = test_files_list[:int(len(test_files_list) * TRAIN_SPLIT)]
+    test_x = test_files_list[:int(len(test_files_list) * TEST_SPLIT)]
+
+    train_y = np.array([1 if file.split('/')[1] == 'pos' else 0 for file in train_x])
+    test_y = np.array([1 if file.split('/')[1] == 'pos' else 0 for file in train_x])
+
+    # Get a bag of words dictionary
+    word_freq_dict = get_bag_of_words(test_files_list)
+    
+    # Start training 
+    X = np.zeros((len(train_x), 3))
+    for i in range(len(train_x)):
+        X[i, :] = extract_features(train_x[i], word_freq_dict)
+    
+    # print(X)
+
+    Y = train_y
+    J, theta = gradientDescent(X, Y, np.zeros((3, 1)), 1e-7, 1000, 0)
+
+    # # print(f"The cost after training is {J:.8f}.")
+    # print(test_files_list[:4])
+    # print(f"The resulting vector of weights is {[np.round(t, 8) for t in np.squeeze(theta)]}")
+    
+    accuracy = test_accuracy(test_x, test_y, word_freq_dict, theta)
+    # print(accuracy)
+    
+        
+
 if __name__ == "__main__":
     classification_dict = {'pos': {}, 'neg':{}}
 
@@ -280,16 +459,18 @@ if __name__ == "__main__":
     test_files_list = get_random_test_files()
 
     # Question 1.1: Sentiment lexicon-based classifier
-    print("Question 1.1: Sentiment lexicon-based classifier")
-    classification_scores, true_labels = analyze_sentiment(test_files_list, classification_dict)
-    accuracy = compute_accuracy(classification_scores, true_labels)
-    f1_score = compute_f1_score(classification_scores, true_labels)
+    # print("Question 1.1: Sentiment lexicon-based classifier")
+    # classification_scores, true_labels = analyze_sentiment(test_files_list, classification_dict)
+    # accuracy = compute_accuracy(classification_scores, true_labels)
+    # f1_score = compute_f1_score(classification_scores, true_labels)
 
-    print(f"\nClassification of positive reviews:")
-    for file, classification in classification_dict['pos'].items():
-        print(f"File: {file}\tModel Classification: {classification}")
-    print(f"\nClassification of negative reviews:")
-    for file, classification in classification_dict['neg'].items():
-        print(f"File: {file}\tModel Classification: {classification}")
+    # print(f"\nClassification of positive reviews:")
+    # for file, classification in classification_dict['pos'].items():
+    #     print(f"File: {file}\tModel Classification: {classification}")
+    # print(f"\nClassification of negative reviews:")
+    # for file, classification in classification_dict['neg'].items():
+    #     print(f"File: {file}\tModel Classification: {classification}")
 
-    print(f"\nAccuracy: {accuracy:.2f}\tF1 Score: {f1_score:.2f}")
+    # print(f"\nAccuracy: {accuracy:.2f}\tF1 Score: {f1_score:.2f}")
+
+    binary_logistic_classifier(test_files_list)

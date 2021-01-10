@@ -160,21 +160,19 @@ def get_pos_neg_word_count(tokens: list, pos_lex_words: set, neg_lex_words: set)
     
     return (positive_words, negative_words)
 
-def analyze_sentiment():
+def analyze_sentiment(test_files_list: list):
     """ This is the main function for building a
     Sentiment lexicon-based classifier.
 
     Parameters
     ----------
-    None
+    test_files_list: list of paths (strings), where each path
+    should be the relative path to the file
 
     Returns
     ----------
     The classification_scores and true_value
     """
-
-    # Random list of files
-    test_files_list = get_random_test_files()
 
     # Lexicon words used for sentiment analysis
     pos_lex_words = get_lexicon_words(POS_LEXICON_DIR_PATH)
@@ -264,9 +262,13 @@ def compute_f1_score(classification_scores: np.array, true_labels: np.array):
     return 2 * ((precision * recall) / (precision + recall))
 
 if __name__ == "__main__":
+
+    # Random list of files
+    test_files_list = get_random_test_files()
+
     # Question 1.1: Sentiment lexicon-based classifier
     print("Question 1.1: Sentiment lexicon-based classifier")
-    classification_scores, true_labels = analyze_sentiment()
+    classification_scores, true_labels = analyze_sentiment(test_files_list)
     accuracy = compute_accuracy(classification_scores, true_labels)
     f1_score = compute_f1_score(classification_scores, true_labels)
-    print(f"Accuracy:{accuracy:.2f}\tF1 Score:{f1_score:.2f}")
+    print(f"Accuracy: {accuracy:.2f}\tF1 Score: {f1_score:.2f}")

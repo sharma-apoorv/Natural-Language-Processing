@@ -37,7 +37,7 @@ NEG_LEXICON_FILE_NAME = 'negative-words.txt'
 POS_LEXICON_DIR_PATH = os.path.join(LEXICON_FOLDER_NAME, POS_LEXICON_FILE_NAME)
 NEG_LEXICON_DIR_PATH = os.path.join(LEXICON_FOLDER_NAME, NEG_LEXICON_FILE_NAME)
 
-def get_random_test_files() -> str:
+def get_test_train_files_split() -> str:
     """ Function to randomly select TOTAL_TEST_FILES from the
     POS_DIR_PATH and NEG_DIR_PATH
 
@@ -55,15 +55,20 @@ def get_random_test_files() -> str:
 
     test_files_list = []
     random_files_index = random.sample(range(len(pos_files_list)), NUM_POS_TEST_FILES)
-    test_pos_files_list = [pos_files_list[i] for i in random_files_index]
+    test_pos_files_list = [pos_files_list[i] for i in random_files_index] # pos test files list
+    train_pos_file_list = [pos_files_list[i] for i in range(len(pos_files_list)) if i not in random_files_index] # pos train file list
 
     random_files_index = random.sample(range(len(neg_files_list)), NUM_NEG_TEST_FILES)
     test_neg_files_list = [neg_files_list[i] for i in random_files_index]
+    train_neg_file_list = [neg_files_list[i] for i in range(len(neg_files_list)) if i not in random_files_index] # pos train file list
 
     test_files_list = test_pos_files_list + test_neg_files_list
-    random.shuffle(test_files_list)
+    train_files_list = train_pos_file_list + train_neg_file_list
 
-    return test_files_list
+    random.shuffle(test_files_list)
+    random.shuffle(train_files_list)
+
+    return test_files_list, train_files_list
 
 def clean_lexicon_list_words(l: list) -> list:
     """ This function strips all characters in the list
@@ -324,7 +329,7 @@ def gradientDescent(x, y, theta, alpha, num_iters, c):
     # get the number of samples in the training
     m = x.shape[0]
     
-    for i in range(0, num_iters):
+    for i in range(num_iters):
         
         # find linear regression equation value, X and theta
         z = np.dot(x, theta) #score_LR
@@ -334,17 +339,16 @@ def gradientDescent(x, y, theta, alpha, num_iters, c):
         
         # c is L2 regularizer term
         J = (-1/m) * ((np.dot(y.T, np.log(h)) + np.dot((1 - y).T, np.log(1-h))) + (c * np.sum(theta)))
+
+        print(f"Loss after epoch {i} is: {float(J)}")
         
         # update the weights theta
         theta = theta - (alpha / m) * np.dot((x.T), (h - y))
    
-    # J = float(J)
+    J = float(J)
     return J, theta
 
-def predict_sentiment(file, theta, word_freq_dict):
-
-    x = extract_features(file, word_freq_dict)
-
+def predict_sentiment(x, theta):
     # make the prediction for x with learned theta values
     y_pred = sigmoid(np.dot(x, theta))
     
@@ -353,41 +357,16 @@ def predict_sentiment(file, theta, word_freq_dict):
 def test_accuracy(test_x, test_y, word_freq_dict, theta):
 
     # predict for the test sample with the learned weights for logistics regression
-    for file in test_x:
-        predicted_prob = predict_sentiment(file, theta, word_freq_dict)
-        print(file, predicted_prob)
-    
+    predicted_probs = predict_sentiment(test_x, theta)
+    # print(predicted_probs, np.array(test_y).reshape(-1,1))
+
     # # assign the probability threshold to class
-    # predicted_labels = np.where(predicted_probs > 0.5, 1, 0)
+    predicted_labels = np.where(predicted_probs > 0.5, 1, 0)
+    print(predicted_labels)
+    print(np.array(test_y).reshape(-1,1))
     
-    # # calculate the accuracy
-    # print(f"Own implementation of logistic regression accuracy is {len(predicted_labels[predicted_labels == np.array(test_y).reshape(-1,1)]) / len(test_y)*100:.2f}")
-
-
-    # y_hat = []
-    # for file in test_x:
-        
-    #     y_pred = predict_sentiment(file, theta, freqs_dict)
-    #     print(y_pred)
-        
-    #     if y_pred.all() > (0.5, 1, 0):
-           
-    #         y_hat.append(1)
-    #     else:
-            
-    #         y_hat.append(0)
-    # m=len(y_hat)
-    # y_hat=np.array(y_hat)
-    # y_hat=y_hat.reshape(m)
-    # test_y=test_y.reshape(m)
-    
-    # c=y_hat==test_y
-    # j=0
-    # for i in c:
-    #     if i==True:
-    #         j=j+1
-    # accuracy = j/m
-    # return accuracy
+    # calculate the accuracy
+    print(f"Own implementation of logistic regression accuracy is {len(predicted_labels[predicted_labels == np.array(test_y).reshape(-1,1)]) / len(test_y)*100:.2f}")
 
 def get_bag_of_words(file_list):
     word_freq_dict = {}
@@ -417,37 +396,31 @@ def get_bag_of_words(file_list):
     
     return word_freq_dict
 
-def binary_logistic_classifier(test_files_list):
+def binary_logistic_classifier(test_files_list, train_files_list):
 
-    TRAIN_SPLIT = 80 / 100
-    TEST_SPLIT = 1 - TRAIN_SPLIT
-    # TEST_SPLIT = 1/100
-
-    # Note: Pos and Neg not in even proportions! 
-    train_x = test_files_list[:int(len(test_files_list) * TRAIN_SPLIT)]
-    test_x = test_files_list[:int(len(test_files_list) * TEST_SPLIT)]
-
-    train_y = np.array([1 if file.split('/')[1] == 'pos' else 0 for file in train_x])
-    test_y = np.array([1 if file.split('/')[1] == 'pos' else 0 for file in train_x])
+    train_y = np.array([1 if file.split('/')[1] == 'pos' else 0 for file in train_files_list])
+    test_y = np.array([1 if file.split('/')[1] == 'pos' else 0 for file in test_files_list])
 
     # Get a bag of words dictionary
     word_freq_dict = get_bag_of_words(test_files_list)
     
     # Start training 
-    X = np.zeros((len(train_x), 3))
-    for i in range(len(train_x)):
-        X[i, :] = extract_features(train_x[i], word_freq_dict)
+    X = np.zeros((len(train_files_list), 3))
+    for i in range(len(train_files_list)):
+        X[i, :] = extract_features(train_files_list[i], word_freq_dict)
     
-    # print(X)
+    # test X feature dimension
+    X_test = np.zeros((len(test_files_list), 3))
+    for index, file in enumerate(test_files_list):
+        X_test[index, :] = extract_features(file, word_freq_dict)
 
-    Y = train_y
+    Y = np.array(train_y).reshape(-1,1)
     J, theta = gradientDescent(X, Y, np.zeros((3, 1)), 1e-7, 1000, 0)
 
-    # # print(f"The cost after training is {J:.8f}.")
-    # print(test_files_list[:4])
-    # print(f"The resulting vector of weights is {[np.round(t, 8) for t in np.squeeze(theta)]}")
+    print(f"The cost after training is {J:.8f}.")
+    print(f"The resulting vector of weights is {[np.round(t, 8) for t in np.squeeze(theta)]}")
     
-    accuracy = test_accuracy(test_x, test_y, word_freq_dict, theta)
+    accuracy = test_accuracy(X_test, test_y, word_freq_dict, theta)
     # print(accuracy)
     
         
@@ -456,7 +429,7 @@ if __name__ == "__main__":
     classification_dict = {'pos': {}, 'neg':{}}
 
     # Random list of files
-    test_files_list = get_random_test_files()
+    test_files_list, train_files_list = get_test_train_files_split()
 
     # Question 1.1: Sentiment lexicon-based classifier
     # print("Question 1.1: Sentiment lexicon-based classifier")
@@ -473,4 +446,4 @@ if __name__ == "__main__":
 
     # print(f"\nAccuracy: {accuracy:.2f}\tF1 Score: {f1_score:.2f}")
 
-    binary_logistic_classifier(test_files_list)
+    binary_logistic_classifier(test_files_list, train_files_list)

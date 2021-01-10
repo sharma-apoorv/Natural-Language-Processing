@@ -37,6 +37,8 @@ NEG_LEXICON_FILE_NAME = 'negative-words.txt'
 POS_LEXICON_DIR_PATH = os.path.join(LEXICON_FOLDER_NAME, POS_LEXICON_FILE_NAME)
 NEG_LEXICON_DIR_PATH = os.path.join(LEXICON_FOLDER_NAME, NEG_LEXICON_FILE_NAME)
 
+COMMON_STOP_WORDS = set(["a","about","above","after","again","against","ain","all","am","an","and","any","are","aren","aren't","as","at","be","because","been","before","being","below","between","both","but","by","can","couldn","couldn't","d","did","didn","didn't","do","does","doesn","doesn't","doing","don","don't","down","during","each","few","for","from","further","had","hadn","hadn't","has","hasn","hasn't","have","haven","haven't","having","he","her","here","hers","herself","him","himself","his","how","i","if","in","into","is","isn","isn't","it","it's","its","itself","just","ll","m","ma","me","mightn","mightn't","more","most","mustn","mustn't","my","myself","needn","needn't","no","nor","not","now","o","of","off","on","once","only","or","other","our","ours","ourselves","out","over","own","re","s","same","shan","shan't","she","she's","should","should've","shouldn","shouldn't","so","some","such","t","than","that","that'll","the","their","theirs","them","themselves","then","there","these","they","this","those","through","to","too","under","until","up","ve","very","was","wasn","wasn't","we","were","weren","weren't","what","when","where","which","while","who","whom","why","will","with","won","won't","wouldn","wouldn't","y","you","you'd","you'll","you're","you've","your","yours","yourself","yourselves","could","he'd","he'll","he's","here's","how's","i'd","i'll","i'm","i've","let's","ought","she'd","she'll","that's","there's","they'd","they'll","they're","they've","we'd","we'll","we're","we've","what's","when's","where's","who's","why's","would","able","abst","accordance","according","accordingly","across","act","actually","added","adj","affected","affecting","affects","afterwards","ah","almost","alone","along","already","also","although","always","among","amongst","announce","another","anybody","anyhow","anymore","anyone","anything","anyway","anyways","anywhere","apparently","approximately","arent","arise","around","aside","ask","asking","auth","available","away","awfully","b","back","became","become","becomes","becoming","beforehand","begin","beginning","beginnings","begins","behind","believe","beside","besides","beyond","biol","brief","briefly","c","ca","came","cannot","can't","cause","causes","certain","certainly","co","com","come","comes","contain","containing","contains","couldnt","date","different","done","downwards","due","e","ed","edu","effect","eg","eight","eighty","either","else","elsewhere","end","ending","enough","especially","et","etc","even","ever","every","everybody","everyone","everything","everywhere","ex","except","f","far","ff","fifth","first","five","fix","followed","following","follows","former","formerly","forth","found","four","furthermore","g","gave","get","gets","getting","give","given","gives","giving","go","goes","gone","got","gotten","h","happens","hardly","hed","hence","hereafter","hereby","herein","heres","hereupon","hes","hi","hid","hither","home","howbeit","however","hundred","id","ie","im","immediate","immediately","importance","important","inc","indeed","index","information","instead","invention","inward","itd","it'll","j","k","keep","keeps","kept","kg","km","know","known","knows","l","largely","last","lately","later","latter","latterly","least","less","lest","let","lets","like","liked","likely","line","little","'ll","look","looking","looks","ltd","made","mainly","make","makes","many","may","maybe","mean","means","meantime","meanwhile","merely","mg","might","million","miss","ml","moreover","mostly","mr","mrs","much","mug","must","n","na","name","namely","nay","nd","near","nearly","necessarily","necessary","need","needs","neither","never","nevertheless","new","next","nine","ninety","nobody","non","none","nonetheless","noone","normally","nos","noted","nothing","nowhere","obtain","obtained","obviously","often","oh","ok","okay","old","omitted","one","ones","onto","ord","others","otherwise","outside","overall","owing","p","page","pages","part","particular","particularly","past","per","perhaps","placed","please","plus","poorly","possible","possibly","potentially","pp","predominantly","present","previously","primarily","probably","promptly","proud","provides","put","q","que","quickly","quite","qv","r","ran","rather","rd","readily","really","recent","recently","ref","refs","regarding","regardless","regards","related","relatively","research","respectively","resulted","resulting","results","right","run","said","saw","say","saying","says","sec","section","see","seeing","seem","seemed","seeming","seems","seen","self","selves","sent","seven","several","shall","shed","shes","show","showed","shown","showns","shows","significant","significantly","similar","similarly","since","six","slightly","somebody","somehow","someone","somethan","something","sometime","sometimes","somewhat","somewhere","soon","sorry","specifically","specified","specify","specifying","still","stop","strongly","sub","substantially","successfully","sufficiently","suggest","sup","sure","take","taken","taking","tell","tends","th","thank","thanks","thanx","thats","that've","thence","thereafter","thereby","thered","therefore","therein","there'll","thereof","therere","theres","thereto","thereupon","there've","theyd","theyre","think","thou","though","thoughh","thousand","throug","throughout","thru","thus","til","tip","together","took","toward","towards","tried","tries","truly","try","trying","ts","twice","two","u","un","unfortunately","unless","unlike","unlikely","unto","upon","ups","us","use","used","useful","usefully","usefulness","uses","using","usually","v","value","various","'ve","via","viz","vol","vols","vs","w","want","wants","wasnt","way","wed","welcome","went","werent","whatever","what'll","whats","whence","whenever","whereafter","whereas","whereby","wherein","wheres","whereupon","wherever","whether","whim","whither","whod","whoever","whole","who'll","whomever","whos","whose","widely","willing","wish","within","without","wont","words","world","wouldnt","www","x","yes","yet","youd","youre","z","zero","a's","ain't","allow","allows","apart","appear","appreciate","appropriate","associated","best","better","c'mon","c's","cant","changes","clearly","concerning","consequently","consider","considering","corresponding","course","currently","definitely","described","despite","entirely","exactly","example","going","greetings","hello","help","hopefully","ignored","inasmuch","indicate","indicated","indicates","inner","insofar","it'd","keep","keeps","novel","presumably","reasonably","second","secondly","sensible","serious","seriously","sure","t's","third","thorough","thoroughly","three","well","wonder"])
+
 def get_test_train_files_split() -> str:
     """ Function to randomly select TOTAL_TEST_FILES from the
     POS_DIR_PATH and NEG_DIR_PATH
@@ -337,10 +339,10 @@ def gradientDescent(x, y, theta, alpha, num_iters, c):
         # get the sigmoid of z
         h = sigmoid(z) # p_LR(Y=+1 | x; theta)
         
-        # c is L2 regularizer term
+        # cross-entropy loss function
         J = (-1/m) * ((np.dot(y.T, np.log(h)) + np.dot((1 - y).T, np.log(1-h))) + (c * np.sum(theta)))
 
-        print(f"Loss after epoch {i} is: {float(J)}")
+        # print(f"Loss after epoch {i} is: {float(J)}")
         
         # update the weights theta
         theta = theta - (alpha / m) * np.dot((x.T), (h - y))
@@ -354,7 +356,7 @@ def predict_sentiment(x, theta):
     
     return y_pred
 
-def test_accuracy(test_x, test_y, word_freq_dict, theta):
+def test_classifier(test_x, test_y, word_freq_dict, theta):
 
     # predict for the test sample with the learned weights for logistics regression
     predicted_probs = predict_sentiment(test_x, theta)
@@ -362,8 +364,8 @@ def test_accuracy(test_x, test_y, word_freq_dict, theta):
 
     # # assign the probability threshold to class
     predicted_labels = np.where(predicted_probs > 0.5, 1, 0)
-    print(predicted_labels)
-    print(np.array(test_y).reshape(-1,1))
+    # print(predicted_labels)
+    # print(np.array(test_y).reshape(-1,1))
     
     # calculate the accuracy
     print(f"Own implementation of logistic regression accuracy is {len(predicted_labels[predicted_labels == np.array(test_y).reshape(-1,1)]) / len(test_y)*100:.2f}")
@@ -381,11 +383,11 @@ def get_bag_of_words(file_list):
         for sentence in sentences:
             tokens += tokenize(sentence) # Do not want to remove duplicate words, so we have more data
         
-        #TODO: Need to remove stop words!!
         for token in tokens:
-            if  token and len(token) > 1 and\
+            if  token and\
                 (token not in string.punctuation) and\
-                not is_digit_regex(token):
+                not is_digit_regex(token) and\
+                token not in COMMON_STOP_WORDS:
                 
                 token = token.strip()
 
@@ -398,32 +400,31 @@ def get_bag_of_words(file_list):
 
 def binary_logistic_classifier(test_files_list, train_files_list):
 
+    # Infer the true outputs based on the file names
     train_y = np.array([1 if file.split('/')[1] == 'pos' else 0 for file in train_files_list])
     test_y = np.array([1 if file.split('/')[1] == 'pos' else 0 for file in test_files_list])
 
     # Get a bag of words dictionary
-    word_freq_dict = get_bag_of_words(test_files_list)
+    word_freq_dict = get_bag_of_words(train_files_list)
     
-    # Start training 
+    # Extract wanted features from the train inputs
     X = np.zeros((len(train_files_list), 3))
     for i in range(len(train_files_list)):
         X[i, :] = extract_features(train_files_list[i], word_freq_dict)
     
-    # test X feature dimension
-    X_test = np.zeros((len(test_files_list), 3))
+    # Extract wanted features from the test inputs
+    test_x = np.zeros((len(test_files_list), 3))
     for index, file in enumerate(test_files_list):
-        X_test[index, :] = extract_features(file, word_freq_dict)
+        test_x[index, :] = extract_features(file, word_freq_dict)
 
     Y = np.array(train_y).reshape(-1,1)
-    J, theta = gradientDescent(X, Y, np.zeros((3, 1)), 1e-7, 1000, 0)
+    J, theta = gradientDescent(X, Y, np.zeros((3, 1)), 1e-7, 1500, 0)
 
     print(f"The cost after training is {J:.8f}.")
     print(f"The resulting vector of weights is {[np.round(t, 8) for t in np.squeeze(theta)]}")
     
-    accuracy = test_accuracy(X_test, test_y, word_freq_dict, theta)
+    accuracy = test_classifier(test_x, test_y, word_freq_dict, theta)
     # print(accuracy)
-    
-        
 
 if __name__ == "__main__":
     classification_dict = {'pos': {}, 'neg':{}}

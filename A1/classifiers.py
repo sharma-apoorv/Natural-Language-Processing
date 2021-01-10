@@ -61,6 +61,7 @@ def get_random_test_files() -> str:
     test_neg_files_list = [neg_files_list[i] for i in random_files_index]
 
     test_files_list = test_pos_files_list + test_neg_files_list
+    random.shuffle(test_files_list)
 
     return test_files_list
 
@@ -160,7 +161,7 @@ def get_pos_neg_word_count(tokens: list, pos_lex_words: set, neg_lex_words: set)
     
     return (positive_words, negative_words)
 
-def analyze_sentiment(test_files_list: list):
+def analyze_sentiment(test_files_list: list, classification_dict: dict):
     """ This is the main function for building a
     Sentiment lexicon-based classifier.
 
@@ -204,6 +205,17 @@ def analyze_sentiment(test_files_list: list):
         if file.split('/')[1] == 'pos': true_label[1] += 1
         else: true_label[0] += 1
         true_labels.append(true_label)
+
+        # Print for submitting assignment
+        if true_label[0]: #file is actually negative
+            classification_dict['neg'][file.split('/')[2]] = 'neutral'
+            if positive_words > negative_words: classification_dict['neg'][file.split('/')[2]] = 'positive'
+            else: classification_dict['neg'][file.split('/')[2]] = 'negative'
+        else:
+            classification_dict['pos'][file.split('/')[2]] = 'neutral'
+            if positive_words > negative_words: classification_dict['pos'][file.split('/')[2]] = 'positive'
+            else: classification_dict['pos'][file.split('/')[2]] = 'negative'
+
     
     return np.array(classification_scores), np.array(true_labels)
 
@@ -262,13 +274,22 @@ def compute_f1_score(classification_scores: np.array, true_labels: np.array):
     return 2 * ((precision * recall) / (precision + recall))
 
 if __name__ == "__main__":
+    classification_dict = {'pos': {}, 'neg':{}}
 
     # Random list of files
     test_files_list = get_random_test_files()
 
     # Question 1.1: Sentiment lexicon-based classifier
     print("Question 1.1: Sentiment lexicon-based classifier")
-    classification_scores, true_labels = analyze_sentiment(test_files_list)
+    classification_scores, true_labels = analyze_sentiment(test_files_list, classification_dict)
     accuracy = compute_accuracy(classification_scores, true_labels)
     f1_score = compute_f1_score(classification_scores, true_labels)
-    print(f"Accuracy: {accuracy:.2f}\tF1 Score: {f1_score:.2f}")
+
+    print(f"\nClassification of positive reviews:")
+    for file, classification in classification_dict['pos'].items():
+        print(f"File: {file}\tModel Classification: {classification}")
+    print(f"\nClassification of negative reviews:")
+    for file, classification in classification_dict['neg'].items():
+        print(f"File: {file}\tModel Classification: {classification}")
+
+    print(f"\nAccuracy: {accuracy:.2f}\tF1 Score: {f1_score:.2f}")

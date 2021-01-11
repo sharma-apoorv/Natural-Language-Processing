@@ -304,7 +304,8 @@ def get_clean_tokenized_words(file):
     for word in tokens:
         if  word and len(word) > 1 and\
                     (word not in string.punctuation) and\
-                    not is_digit_regex(word):
+                    not is_digit_regex(word) and\
+                    word not in COMMON_STOP_WORDS:
                 
                 clean_words.append(word.strip())
     
@@ -457,7 +458,7 @@ def binary_logistic_classifier(test_files_list, train_files_list, classification
         test_x[index, :] = extract_features(file, word_freq_dict)
 
     Y = np.array(train_y).reshape(-1,1)
-    J, theta = gradientDescent(X, Y, np.zeros((NUM_FEATURES, 1)), 1e-7, 100, 0.1)
+    J, theta = gradientDescent(X, Y, np.zeros((NUM_FEATURES, 1)), 1e-4, 1000, 0.1)
 
     # print(f"The cost after training is {J:.8f}.")
     # print(f"The resulting vector of weights is {[np.round(t, 8) for t in np.squeeze(theta)]}")

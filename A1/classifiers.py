@@ -39,6 +39,8 @@ NEG_LEXICON_DIR_PATH = os.path.join(LEXICON_FOLDER_NAME, NEG_LEXICON_FILE_NAME)
 
 COMMON_STOP_WORDS = set(["a","about","above","after","again","against","ain","all","am","an","and","any","are","aren","aren't","as","at","be","because","been","before","being","below","between","both","but","by","can","couldn","couldn't","d","did","didn","didn't","do","does","doesn","doesn't","doing","don","don't","down","during","each","few","for","from","further","had","hadn","hadn't","has","hasn","hasn't","have","haven","haven't","having","he","her","here","hers","herself","him","himself","his","how","i","if","in","into","is","isn","isn't","it","it's","its","itself","just","ll","m","ma","me","mightn","mightn't","more","most","mustn","mustn't","my","myself","needn","needn't","no","nor","not","now","o","of","off","on","once","only","or","other","our","ours","ourselves","out","over","own","re","s","same","shan","shan't","she","she's","should","should've","shouldn","shouldn't","so","some","such","t","than","that","that'll","the","their","theirs","them","themselves","then","there","these","they","this","those","through","to","too","under","until","up","ve","very","was","wasn","wasn't","we","were","weren","weren't","what","when","where","which","while","who","whom","why","will","with","won","won't","wouldn","wouldn't","y","you","you'd","you'll","you're","you've","your","yours","yourself","yourselves","could","he'd","he'll","he's","here's","how's","i'd","i'll","i'm","i've","let's","ought","she'd","she'll","that's","there's","they'd","they'll","they're","they've","we'd","we'll","we're","we've","what's","when's","where's","who's","why's","would","able","abst","accordance","according","accordingly","across","act","actually","added","adj","affected","affecting","affects","afterwards","ah","almost","alone","along","already","also","although","always","among","amongst","announce","another","anybody","anyhow","anymore","anyone","anything","anyway","anyways","anywhere","apparently","approximately","arent","arise","around","aside","ask","asking","auth","available","away","awfully","b","back","became","become","becomes","becoming","beforehand","begin","beginning","beginnings","begins","behind","believe","beside","besides","beyond","biol","brief","briefly","c","ca","came","cannot","can't","cause","causes","certain","certainly","co","com","come","comes","contain","containing","contains","couldnt","date","different","done","downwards","due","e","ed","edu","effect","eg","eight","eighty","either","else","elsewhere","end","ending","enough","especially","et","etc","even","ever","every","everybody","everyone","everything","everywhere","ex","except","f","far","ff","fifth","first","five","fix","followed","following","follows","former","formerly","forth","found","four","furthermore","g","gave","get","gets","getting","give","given","gives","giving","go","goes","gone","got","gotten","h","happens","hardly","hed","hence","hereafter","hereby","herein","heres","hereupon","hes","hi","hid","hither","home","howbeit","however","hundred","id","ie","im","immediate","immediately","importance","important","inc","indeed","index","information","instead","invention","inward","itd","it'll","j","k","keep","keeps","kept","kg","km","know","known","knows","l","largely","last","lately","later","latter","latterly","least","less","lest","let","lets","like","liked","likely","line","little","'ll","look","looking","looks","ltd","made","mainly","make","makes","many","may","maybe","mean","means","meantime","meanwhile","merely","mg","might","million","miss","ml","moreover","mostly","mr","mrs","much","mug","must","n","na","name","namely","nay","nd","near","nearly","necessarily","necessary","need","needs","neither","never","nevertheless","new","next","nine","ninety","nobody","non","none","nonetheless","noone","normally","nos","noted","nothing","nowhere","obtain","obtained","obviously","often","oh","ok","okay","old","omitted","one","ones","onto","ord","others","otherwise","outside","overall","owing","p","page","pages","part","particular","particularly","past","per","perhaps","placed","please","plus","poorly","possible","possibly","potentially","pp","predominantly","present","previously","primarily","probably","promptly","proud","provides","put","q","que","quickly","quite","qv","r","ran","rather","rd","readily","really","recent","recently","ref","refs","regarding","regardless","regards","related","relatively","research","respectively","resulted","resulting","results","right","run","said","saw","say","saying","says","sec","section","see","seeing","seem","seemed","seeming","seems","seen","self","selves","sent","seven","several","shall","shed","shes","show","showed","shown","showns","shows","significant","significantly","similar","similarly","since","six","slightly","somebody","somehow","someone","somethan","something","sometime","sometimes","somewhat","somewhere","soon","sorry","specifically","specified","specify","specifying","still","stop","strongly","sub","substantially","successfully","sufficiently","suggest","sup","sure","take","taken","taking","tell","tends","th","thank","thanks","thanx","thats","that've","thence","thereafter","thereby","thered","therefore","therein","there'll","thereof","therere","theres","thereto","thereupon","there've","theyd","theyre","think","thou","though","thoughh","thousand","throug","throughout","thru","thus","til","tip","together","took","toward","towards","tried","tries","truly","try","trying","ts","twice","two","u","un","unfortunately","unless","unlike","unlikely","unto","upon","ups","us","use","used","useful","usefully","usefulness","uses","using","usually","v","value","various","'ve","via","viz","vol","vols","vs","w","want","wants","wasnt","way","wed","welcome","went","werent","whatever","what'll","whats","whence","whenever","whereafter","whereas","whereby","wherein","wheres","whereupon","wherever","whether","whim","whither","whod","whoever","whole","who'll","whomever","whos","whose","widely","willing","wish","within","without","wont","words","world","wouldnt","www","x","yes","yet","youd","youre","z","zero","a's","ain't","allow","allows","apart","appear","appreciate","appropriate","associated","best","better","c'mon","c's","cant","changes","clearly","concerning","consequently","consider","considering","corresponding","course","currently","definitely","described","despite","entirely","exactly","example","going","greetings","hello","help","hopefully","ignored","inasmuch","indicate","indicated","indicates","inner","insofar","it'd","keep","keeps","novel","presumably","reasonably","second","secondly","sensible","serious","seriously","sure","t's","third","thorough","thoroughly","three","well","wonder"])
 
+NUM_FEATURES = 3
+
 def get_test_train_files_split() -> str:
     """ Function to randomly select TOTAL_TEST_FILES from the
     POS_DIR_PATH and NEG_DIR_PATH
@@ -226,7 +228,7 @@ def analyze_sentiment(test_files_list: list, classification_dict: dict):
     
     return np.array(classification_scores), np.array(true_labels)
 
-def compute_confusion_matrix_values(classification_scores, true_values) -> tuple:
+def compute_confusion_matrix_values(classification_scores, true_values, take_max=True) -> tuple:
     """ This function computes the confusion matrix scores namely:
     TP, TN, FP, FN
 
@@ -245,8 +247,10 @@ def compute_confusion_matrix_values(classification_scores, true_values) -> tuple
     TP, TN, FP, FN
 
     """
-    pred_labels = np.argmax(classification_scores, axis=1)
-    true_labels = np.argmax(true_values, axis=1)
+    pred_labels, true_labels = classification_scores, true_values
+    if take_max:
+        pred_labels = np.argmax(classification_scores, axis=1)
+        true_labels = np.argmax(true_values, axis=1)
 
     # True Positive (TP): we predict a label of 1 (positive), and the true label is 1.
     TP = np.sum(np.logical_and(pred_labels == 1, true_labels == 1))
@@ -262,21 +266,21 @@ def compute_confusion_matrix_values(classification_scores, true_values) -> tuple
     
     return TP, TN, FP, FN
 
-def compute_accuracy(classification_scores: np.array, true_labels: np.array):
-    TP, TN, FP, FN = compute_confusion_matrix_values(classification_scores, true_labels)
+def compute_accuracy(classification_scores: np.array, true_labels: np.array, take_max=True):
+    TP, TN, FP, FN = compute_confusion_matrix_values(classification_scores, true_labels, take_max)
     return (TP + TN) / (TP + TN + FP + FN)
 
-def compute_precision(classification_scores: np.array, true_labels: np.array):
-    TP, TN, FP, FN = compute_confusion_matrix_values(classification_scores, true_labels)
+def compute_precision(classification_scores: np.array, true_labels: np.array, take_max=True):
+    TP, TN, FP, FN = compute_confusion_matrix_values(classification_scores, true_labels, take_max)
     return TP / (TP + FP)
 
-def compute_recall(classification_scores: np.array, true_labels: np.array):
-    TP, TN, FP, FN = compute_confusion_matrix_values(classification_scores, true_labels)
+def compute_recall(classification_scores: np.array, true_labels: np.array, take_max=True):
+    TP, TN, FP, FN = compute_confusion_matrix_values(classification_scores, true_labels, take_max)
     return TP / (TP + TN)
 
-def compute_f1_score(classification_scores: np.array, true_labels: np.array):
-    precision = compute_precision(classification_scores, true_labels)
-    recall = compute_recall(classification_scores, true_labels)
+def compute_f1_score(classification_scores: np.array, true_labels: np.array, take_max=True):
+    precision = compute_precision(classification_scores, true_labels, take_max)
+    recall = compute_recall(classification_scores, true_labels, take_max)
 
     return 2 * ((precision * recall) / (precision + recall))
 
@@ -341,9 +345,9 @@ def gradientDescent(x, y, theta, alpha, num_iters, c):
         
         # cross-entropy loss function
         J = (-1/m) * ((np.dot(y.T, np.log(h)) + np.dot((1 - y).T, np.log(1-h))) + (c * np.sum(theta)))
+        # if(i % 10 == 0):
+        #     print(f"Loss after epoch {i} is: {float(J)}")
 
-        # print(f"Loss after epoch {i} is: {float(J)}")
-        
         # update the weights theta
         theta = theta - (alpha / m) * np.dot((x.T), (h - y))
    
@@ -356,19 +360,15 @@ def predict_sentiment(x, theta):
     
     return y_pred
 
-def test_classifier(test_x, test_y, word_freq_dict, theta):
+def test_classifier(test_x, theta):
 
     # predict for the test sample with the learned weights for logistics regression
     predicted_probs = predict_sentiment(test_x, theta)
-    # print(predicted_probs, np.array(test_y).reshape(-1,1))
 
-    # # assign the probability threshold to class
+    # assign the probability threshold to class
     predicted_labels = np.where(predicted_probs > 0.5, 1, 0)
-    # print(predicted_labels)
-    # print(np.array(test_y).reshape(-1,1))
-    
-    # calculate the accuracy
-    print(f"Own implementation of logistic regression accuracy is {len(predicted_labels[predicted_labels == np.array(test_y).reshape(-1,1)]) / len(test_y)*100:.2f}")
+
+    return predicted_labels
 
 def get_bag_of_words(file_list):
     word_freq_dict = {}
@@ -398,7 +398,42 @@ def get_bag_of_words(file_list):
     
     return word_freq_dict
 
-def binary_logistic_classifier(test_files_list, train_files_list):
+def get_word_frequency(file_list):
+    
+    clean_words = []
+    for file in file_list:
+        # Read the file to analyze
+        with open(file) as f:
+            sentences = f.readlines()
+
+        # tokenize the sentences in the file
+        tokens = []
+        for sentence in sentences:
+            tokens += tokenize(sentence) # Do not want to remove duplicate words, so we have more data
+        
+        for token in tokens:
+            if  token and\
+                (token not in string.punctuation) and\
+                not is_digit_regex(token) and\
+                token not in COMMON_STOP_WORDS:
+            
+                clean_words.append(token)
+    
+    word_freq = dict((x, clean_words.count(x)) for x in set(clean_words))
+    return word_freq
+
+def tf_idf(file, word_freq):
+    features = list(word_freq.keys())
+
+    curr_file_matrix = []
+
+    curr_file_words = get_clean_tokenized_words(file)
+    curr_file_matrix = [curr_file_words.count(x) for x in features]
+
+    return np.array(curr_file_matrix)
+
+def binary_logistic_classifier(test_files_list, train_files_list, classification_dict):
+    global NUM_FEATURES
 
     # Infer the true outputs based on the file names
     train_y = np.array([1 if file.split('/')[1] == 'pos' else 0 for file in train_files_list])
@@ -407,44 +442,82 @@ def binary_logistic_classifier(test_files_list, train_files_list):
     # Get a bag of words dictionary
     word_freq_dict = get_bag_of_words(train_files_list)
     
+    # word_freq = get_word_frequency(train_files_list)
+    # features = list(word_freq.keys())
+    # NUM_FEATURES = len(features)
+    
     # Extract wanted features from the train inputs
-    X = np.zeros((len(train_files_list), 3))
+    X = np.zeros((len(train_files_list), NUM_FEATURES))
     for i in range(len(train_files_list)):
         X[i, :] = extract_features(train_files_list[i], word_freq_dict)
     
     # Extract wanted features from the test inputs
-    test_x = np.zeros((len(test_files_list), 3))
+    test_x = np.zeros((len(test_files_list), NUM_FEATURES))
     for index, file in enumerate(test_files_list):
         test_x[index, :] = extract_features(file, word_freq_dict)
 
     Y = np.array(train_y).reshape(-1,1)
-    J, theta = gradientDescent(X, Y, np.zeros((3, 1)), 1e-7, 1500, 0)
+    J, theta = gradientDescent(X, Y, np.zeros((NUM_FEATURES, 1)), 1e-7, 100, 0.1)
 
-    print(f"The cost after training is {J:.8f}.")
-    print(f"The resulting vector of weights is {[np.round(t, 8) for t in np.squeeze(theta)]}")
+    # print(f"The cost after training is {J:.8f}.")
+    # print(f"The resulting vector of weights is {[np.round(t, 8) for t in np.squeeze(theta)]}")
     
-    accuracy = test_classifier(test_x, test_y, word_freq_dict, theta)
-    # print(accuracy)
+    predicted_labels = test_classifier(test_x, theta)
+    predicted_labels = predicted_labels.reshape((1,-1))[0]
+
+    for i, file in enumerate(test_files_list):
+        # Print for submitting assignment
+        if test_y[i]: #file is actually positive
+            classification_dict['pos'][file.split('/')[2]] = 'neutral'
+            if predicted_labels[i]: classification_dict['pos'][file.split('/')[2]] = 'positive'
+            else: classification_dict['pos'][file.split('/')[2]] = 'negative'
+        else:
+            classification_dict['neg'][file.split('/')[2]] = 'neutral'
+            if predicted_labels[i]: classification_dict['neg'][file.split('/')[2]] = 'positive'
+            else: classification_dict['neg'][file.split('/')[2]] = 'negative'
+
+    return predicted_labels, test_y
 
 if __name__ == "__main__":
+
+    output_file_name = "output.txt"
+    f = open(output_file_name, "w")
+
     classification_dict = {'pos': {}, 'neg':{}}
 
     # Random list of files
     test_files_list, train_files_list = get_test_train_files_split()
 
     # Question 1.1: Sentiment lexicon-based classifier
-    # print("Question 1.1: Sentiment lexicon-based classifier")
-    # classification_scores, true_labels = analyze_sentiment(test_files_list, classification_dict)
-    # accuracy = compute_accuracy(classification_scores, true_labels)
-    # f1_score = compute_f1_score(classification_scores, true_labels)
+    f.write("Question 1.1: Sentiment lexicon-based classifier\n")
+    classification_scores, true_labels = analyze_sentiment(test_files_list, classification_dict)
+    accuracy = compute_accuracy(classification_scores, true_labels)
+    f1_score = compute_f1_score(classification_scores, true_labels)
 
-    # print(f"\nClassification of positive reviews:")
-    # for file, classification in classification_dict['pos'].items():
-    #     print(f"File: {file}\tModel Classification: {classification}")
-    # print(f"\nClassification of negative reviews:")
-    # for file, classification in classification_dict['neg'].items():
-    #     print(f"File: {file}\tModel Classification: {classification}")
+    f.write(f"\nClassification of positive reviews:\n")
+    for file, classification in classification_dict['pos'].items():
+        f.write(f"File: {file}\tModel Classification: {classification}\n")
+    f.write(f"\nClassification of negative reviews:\n")
+    for file, classification in classification_dict['neg'].items():
+        f.write(f"File: {file}\tModel Classification: {classification}\n")
 
-    # print(f"\nAccuracy: {accuracy:.2f}\tF1 Score: {f1_score:.2f}")
+    f.write(f"\nAccuracy: {accuracy:.2f}\tF1 Score: {f1_score:.2f}\n")
 
-    binary_logistic_classifier(test_files_list, train_files_list)
+    # Question 1.2: Logistic regression classifier
+    logistic_classification_dict = {'pos': {}, 'neg':{}}
+    f.write("\nQuestion 1.2: Logistic regression classifier\n")
+    classification_scores, true_labels = binary_logistic_classifier(test_files_list, train_files_list, logistic_classification_dict)
+    accuracy = compute_accuracy(classification_scores, true_labels, False)
+    f1_score = compute_f1_score(classification_scores, true_labels, False)
+
+    f.write(f"\nClassification of positive reviews:\n")
+    for file, classification in logistic_classification_dict['pos'].items():
+        f.write(f"File: {file}\tModel Classification: {classification}\n")
+    f.write(f"\nClassification of negative reviews:\n")
+    for file, classification in logistic_classification_dict['neg'].items():
+        f.write(f"File: {file}\tModel Classification: {classification}\n")
+
+    f.write(f"\nAccuracy: {accuracy:.2f}\tF1 Score: {f1_score:.2f}\n")
+    
+    f.close()
+    print(f"Done! Check {output_file_name} for results!")

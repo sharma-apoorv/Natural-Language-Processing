@@ -37,9 +37,9 @@ NEG_LEXICON_FILE_NAME = 'negative-words.txt'
 POS_LEXICON_DIR_PATH = os.path.join(LEXICON_FOLDER_NAME, POS_LEXICON_FILE_NAME)
 NEG_LEXICON_DIR_PATH = os.path.join(LEXICON_FOLDER_NAME, NEG_LEXICON_FILE_NAME)
 
-COMMON_STOP_WORDS = set(["a","about","above","after","again","against","ain","all","am","an","and","any","are","aren","aren't","as","at","be","because","been","before","being","below","between","both","but","by","can","couldn","couldn't","d","did","didn","didn't","do","does","doesn","doesn't","doing","don","don't","down","during","each","few","for","from","further","had","hadn","hadn't","has","hasn","hasn't","have","haven","haven't","having","he","her","here","hers","herself","him","himself","his","how","i","if","in","into","is","isn","isn't","it","it's","its","itself","just","ll","m","ma","me","mightn","mightn't","more","most","mustn","mustn't","my","myself","needn","needn't","no","nor","not","now","o","of","off","on","once","only","or","other","our","ours","ourselves","out","over","own","re","s","same","shan","shan't","she","she's","should","should've","shouldn","shouldn't","so","some","such","t","than","that","that'll","the","their","theirs","them","themselves","then","there","these","they","this","those","through","to","too","under","until","up","ve","very","was","wasn","wasn't","we","were","weren","weren't","what","when","where","which","while","who","whom","why","will","with","won","won't","wouldn","wouldn't","y","you","you'd","you'll","you're","you've","your","yours","yourself","yourselves","could","he'd","he'll","he's","here's","how's","i'd","i'll","i'm","i've","let's","ought","she'd","she'll","that's","there's","they'd","they'll","they're","they've","we'd","we'll","we're","we've","what's","when's","where's","who's","why's","would","able","abst","accordance","according","accordingly","across","act","actually","added","adj","affected","affecting","affects","afterwards","ah","almost","alone","along","already","also","although","always","among","amongst","announce","another","anybody","anyhow","anymore","anyone","anything","anyway","anyways","anywhere","apparently","approximately","arent","arise","around","aside","ask","asking","auth","available","away","awfully","b","back","became","become","becomes","becoming","beforehand","begin","beginning","beginnings","begins","behind","believe","beside","besides","beyond","biol","brief","briefly","c","ca","came","cannot","can't","cause","causes","certain","certainly","co","com","come","comes","contain","containing","contains","couldnt","date","different","done","downwards","due","e","ed","edu","effect","eg","eight","eighty","either","else","elsewhere","end","ending","enough","especially","et","etc","even","ever","every","everybody","everyone","everything","everywhere","ex","except","f","far","ff","fifth","first","five","fix","followed","following","follows","former","formerly","forth","found","four","furthermore","g","gave","get","gets","getting","give","given","gives","giving","go","goes","gone","got","gotten","h","happens","hardly","hed","hence","hereafter","hereby","herein","heres","hereupon","hes","hi","hid","hither","home","howbeit","however","hundred","id","ie","im","immediate","immediately","importance","important","inc","indeed","index","information","instead","invention","inward","itd","it'll","j","k","keep","keeps","kept","kg","km","know","known","knows","l","largely","last","lately","later","latter","latterly","least","less","lest","let","lets","like","liked","likely","line","little","'ll","look","looking","looks","ltd","made","mainly","make","makes","many","may","maybe","mean","means","meantime","meanwhile","merely","mg","might","million","miss","ml","moreover","mostly","mr","mrs","much","mug","must","n","na","name","namely","nay","nd","near","nearly","necessarily","necessary","need","needs","neither","never","nevertheless","new","next","nine","ninety","nobody","non","none","nonetheless","noone","normally","nos","noted","nothing","nowhere","obtain","obtained","obviously","often","oh","ok","okay","old","omitted","one","ones","onto","ord","others","otherwise","outside","overall","owing","p","page","pages","part","particular","particularly","past","per","perhaps","placed","please","plus","poorly","possible","possibly","potentially","pp","predominantly","present","previously","primarily","probably","promptly","proud","provides","put","q","que","quickly","quite","qv","r","ran","rather","rd","readily","really","recent","recently","ref","refs","regarding","regardless","regards","related","relatively","research","respectively","resulted","resulting","results","right","run","said","saw","say","saying","says","sec","section","see","seeing","seem","seemed","seeming","seems","seen","self","selves","sent","seven","several","shall","shed","shes","show","showed","shown","showns","shows","significant","significantly","similar","similarly","since","six","slightly","somebody","somehow","someone","somethan","something","sometime","sometimes","somewhat","somewhere","soon","sorry","specifically","specified","specify","specifying","still","stop","strongly","sub","substantially","successfully","sufficiently","suggest","sup","sure","take","taken","taking","tell","tends","th","thank","thanks","thanx","thats","that've","thence","thereafter","thereby","thered","therefore","therein","there'll","thereof","therere","theres","thereto","thereupon","there've","theyd","theyre","think","thou","though","thoughh","thousand","throug","throughout","thru","thus","til","tip","together","took","toward","towards","tried","tries","truly","try","trying","ts","twice","two","u","un","unfortunately","unless","unlike","unlikely","unto","upon","ups","us","use","used","useful","usefully","usefulness","uses","using","usually","v","value","various","'ve","via","viz","vol","vols","vs","w","want","wants","wasnt","way","wed","welcome","went","werent","whatever","what'll","whats","whence","whenever","whereafter","whereas","whereby","wherein","wheres","whereupon","wherever","whether","whim","whither","whod","whoever","whole","who'll","whomever","whos","whose","widely","willing","wish","within","without","wont","words","world","wouldnt","www","x","yes","yet","youd","youre","z","zero","a's","ain't","allow","allows","apart","appear","appreciate","appropriate","associated","best","better","c'mon","c's","cant","changes","clearly","concerning","consequently","consider","considering","corresponding","course","currently","definitely","described","despite","entirely","exactly","example","going","greetings","hello","help","hopefully","ignored","inasmuch","indicate","indicated","indicates","inner","insofar","it'd","keep","keeps","novel","presumably","reasonably","second","secondly","sensible","serious","seriously","sure","t's","third","thorough","thoroughly","three","well","wonder"])
+COMMON_STOP_WORDS = set(["a","about","above","after","again","against","ain","all","am","an","and","any","are","aren","aren't","as","at","be","because","been","before","being","below","between","both","but","by","can","couldn","couldn't","d","did","didn","didn't","do","does","doesn","doesn't","doing","don","don't","down","during","each","few","for","from","further","had","hadn","hadn't","has","hasn","hasn't","have","haven","haven't","having","he","her","here","hers","herself","him","himself","his","how","i","if","in","into","is","isn","isn't","it","it's","its","itself","just","ll","m","ma","me","mightn","mightn't","more","most","mustn","mustn't","my","myself","needn","needn't","nor","not","now","o","of","off","on","once","only","or","other","our","ours","ourselves","out","over","own","re","s","same","shan","shan't","she","she's","should","should've","shouldn","shouldn't","so","some","such","t","than","that","that'll","the","their","theirs","them","themselves","then","there","these","they","this","those","through","to","too","under","until","up","ve","very","was","wasn","wasn't","we","were","weren","weren't","what","when","where","which","while","who","whom","why","will","with","won","won't","wouldn","wouldn't","y","you","you'd","you'll","you're","you've","your","yours","yourself","yourselves","could","he'd","he'll","he's","here's","how's","i'd","i'll","i'm","i've","let's","ought","she'd","she'll","that's","there's","they'd","they'll","they're","they've","we'd","we'll","we're","we've","what's","when's","where's","who's","why's","would","able","abst","accordance","according","accordingly","across","act","actually","added","adj","affected","affecting","affects","afterwards","ah","almost","alone","along","already","also","although","always","among","amongst","announce","another","anybody","anyhow","anymore","anyone","anything","anyway","anyways","anywhere","apparently","approximately","arent","arise","around","aside","ask","asking","auth","available","away","awfully","b","back","became","become","becomes","becoming","beforehand","begin","beginning","beginnings","begins","behind","believe","beside","besides","beyond","biol","brief","briefly","c","ca","came","cannot","can't","cause","causes","certain","certainly","co","com","come","comes","contain","containing","contains","couldnt","date","different","done","downwards","due","e","ed","edu","effect","eg","eight","eighty","either","else","elsewhere","end","ending","enough","especially","et","etc","even","ever","every","everybody","everyone","everything","everywhere","ex","except","f","far","ff","fifth","first","five","fix","followed","following","follows","former","formerly","forth","found","four","furthermore","g","gave","get","gets","getting","give","given","gives","giving","go","goes","gone","got","gotten","h","happens","hardly","hed","hence","hereafter","hereby","herein","heres","hereupon","hes","hi","hid","hither","home","howbeit","however","hundred","id","ie","im","immediate","immediately","importance","important","inc","indeed","index","information","instead","invention","inward","itd","it'll","j","k","keep","keeps","kept","kg","km","know","known","knows","l","largely","last","lately","later","latter","latterly","least","less","lest","let","lets","like","liked","likely","line","little","'ll","look","looking","looks","ltd","made","mainly","make","makes","many","may","maybe","mean","means","meantime","meanwhile","merely","mg","might","million","miss","ml","moreover","mostly","mr","mrs","much","mug","must","n","na","name","namely","nay","nd","near","nearly","necessarily","necessary","need","needs","neither","never","nevertheless","new","next","nine","ninety","nobody","non","none","nonetheless","noone","normally","nos","noted","nothing","nowhere","obtain","obtained","obviously","often","oh","ok","okay","old","omitted","one","ones","onto","ord","others","otherwise","outside","overall","owing","p","page","pages","part","particular","particularly","past","per","perhaps","placed","please","plus","poorly","possible","possibly","potentially","pp","predominantly","present","previously","primarily","probably","promptly","proud","provides","put","q","que","quickly","quite","qv","r","ran","rather","rd","readily","really","recent","recently","ref","refs","regarding","regardless","regards","related","relatively","research","respectively","resulted","resulting","results","right","run","said","saw","say","saying","says","sec","section","see","seeing","seem","seemed","seeming","seems","seen","self","selves","sent","seven","several","shall","shed","shes","show","showed","shown","showns","shows","significant","significantly","similar","similarly","since","six","slightly","somebody","somehow","someone","somethan","something","sometime","sometimes","somewhat","somewhere","soon","sorry","specifically","specified","specify","specifying","still","stop","strongly","sub","substantially","successfully","sufficiently","suggest","sup","sure","take","taken","taking","tell","tends","th","thank","thanks","thanx","thats","that've","thence","thereafter","thereby","thered","therefore","therein","there'll","thereof","therere","theres","thereto","thereupon","there've","theyd","theyre","think","thou","though","thoughh","thousand","throug","throughout","thru","thus","til","tip","together","took","toward","towards","tried","tries","truly","try","trying","ts","twice","two","u","un","unfortunately","unless","unlike","unlikely","unto","upon","ups","us","use","used","useful","usefully","usefulness","uses","using","usually","v","value","various","'ve","via","viz","vol","vols","vs","w","want","wants","wasnt","way","wed","welcome","went","werent","whatever","what'll","whats","whence","whenever","whereafter","whereas","whereby","wherein","wheres","whereupon","wherever","whether","whim","whither","whod","whoever","whole","who'll","whomever","whos","whose","widely","willing","wish","within","without","wont","words","world","wouldnt","www","x","yes","yet","youd","youre","z","zero","a's","ain't","allow","allows","apart","appear","appreciate","appropriate","associated","best","better","c'mon","c's","cant","changes","clearly","concerning","consequently","consider","considering","corresponding","course","currently","definitely","described","despite","entirely","exactly","example","going","greetings","hello","help","hopefully","ignored","inasmuch","indicate","indicated","indicates","inner","insofar","it'd","keep","keeps","novel","presumably","reasonably","second","secondly","sensible","serious","seriously","sure","t's","third","thorough","thoroughly","three","well","wonder"])
 
-NUM_FEATURES = 3
+NUM_FEATURES = 5
 
 def get_test_train_files_split() -> str:
     """ Function to randomly select TOTAL_TEST_FILES from the
@@ -268,7 +268,7 @@ def compute_confusion_matrix_values(classification_scores, true_values, take_max
 
 def compute_accuracy(classification_scores: np.array, true_labels: np.array, take_max=True):
     TP, TN, FP, FN = compute_confusion_matrix_values(classification_scores, true_labels, take_max)
-    return (TP + TN) / (TP + TN + FP + FN)
+    return ((TP + TN) / (TP + TN + FP + FN)) * 100
 
 def compute_precision(classification_scores: np.array, true_labels: np.array, take_max=True):
     TP, TN, FP, FN = compute_confusion_matrix_values(classification_scores, true_labels, take_max)
@@ -282,7 +282,7 @@ def compute_f1_score(classification_scores: np.array, true_labels: np.array, tak
     precision = compute_precision(classification_scores, true_labels, take_max)
     recall = compute_recall(classification_scores, true_labels, take_max)
 
-    return 2 * ((precision * recall) / (precision + recall))
+    return (2 * ((precision * recall) / (precision + recall))) * 100
 
 def update_word_count(word, word_type, word_freq_dict):
     
@@ -315,27 +315,32 @@ def extract_features(file, bow_word_frequency):
     processed_words = get_clean_tokenized_words(file)
     
     # feature array
-    features = np.zeros((1,3))
+    features = np.zeros((1,5))
     
     # bias term
     features[0,0] = 1
     
     for word in processed_words:
-        features[0,1] = bow_word_frequency.get((word, 1), 0) # positive reviews
-        features[0,2] = bow_word_frequency.get((word, 0), 0) # negative reviews
+        features[0,1] += bow_word_frequency.get((word, 1), 0) # positive reviews
+        features[0,2] += bow_word_frequency.get((word, 0), 0) # negative reviews
     
+    features[0,3] = np.log(len(processed_words)) # word count
+    features[0,4] = 1 if "no" in processed_words else 0 # if a negation is in the review
+
     return features
 
-def sigmoid(t): 
-    # calculate the sigmoid of z
-    h = 1 / (1+ np.exp(-t))
+def sigmoid(x):
+    # return np.where(x >= 0, 
+    #                 1 / (1 + np.exp(-x)), 
+    #                 np.exp(x) / (1 + np.exp(x)))
     
-    return h
+    return 1 / (1 + np.exp(-x))
 
-def gradientDescent(x, y, theta, alpha, num_iters, c):
+def gradient_descent(x, y, theta, alpha, num_iters):
     # get the number of samples in the training
     m = x.shape[0]
-    
+    J = 0
+
     for i in range(num_iters):
         
         # find linear regression equation value, X and theta
@@ -343,15 +348,18 @@ def gradientDescent(x, y, theta, alpha, num_iters, c):
         
         # get the sigmoid of z
         h = sigmoid(z) # p_LR(Y=+1 | x; theta)
+
+        if(i % 10 == 0):
+            print(z)
         
         # cross-entropy loss function
-        J = (-1/m) * ((np.dot(y.T, np.log(h)) + np.dot((1 - y).T, np.log(1-h))) + (c * np.sum(theta)))
+        # J = (-1/m) * ((np.dot(y.T, np.log(h)) + np.dot((1 - y).T, np.log(1-h))))
         # if(i % 10 == 0):
-        #     print(f"Loss after epoch {i} is: {float(J)}")
+        #     print(f"Loss after epoch {i} is: {float(J):.5f}")
 
         # update the weights theta
         theta = theta - (alpha / m) * np.dot((x.T), (h - y))
-   
+
     J = float(J)
     return J, theta
 
@@ -374,29 +382,14 @@ def test_classifier(test_x, theta):
 def get_bag_of_words(file_list):
     word_freq_dict = {}
     for file in file_list:
-        
-        # Read the file to analyze
-        with open(file) as f:
-            sentences = f.readlines()
-
-        # tokenize the sentences in the file
-        tokens = []
-        for sentence in sentences:
-            tokens += tokenize(sentence) # Do not want to remove duplicate words, so we have more data
+        tokens = get_clean_tokenized_words(file)
         
         for token in tokens:
-            if  token and\
-                (token not in string.punctuation) and\
-                not is_digit_regex(token) and\
-                token not in COMMON_STOP_WORDS:
-                
-                token = token.strip()
+            if file.split('/')[1] == 'pos':
+                update_word_count(token, 1, word_freq_dict)
+            else:
+                update_word_count(token, 0, word_freq_dict)
 
-                if file.split('/')[1] == 'pos':
-                    update_word_count(token, 1, word_freq_dict)
-                else:
-                    update_word_count(token, 0, word_freq_dict)
-    
     return word_freq_dict
 
 def get_word_frequency(file_list):
@@ -452,16 +445,18 @@ def binary_logistic_classifier(test_files_list, train_files_list, classification
     for i in range(len(train_files_list)):
         X[i, :] = extract_features(train_files_list[i], word_freq_dict)
     
+    print(X, type(X))
+    
     # Extract wanted features from the test inputs
     test_x = np.zeros((len(test_files_list), NUM_FEATURES))
     for index, file in enumerate(test_files_list):
         test_x[index, :] = extract_features(file, word_freq_dict)
 
     Y = np.array(train_y).reshape(-1,1)
-    J, theta = gradientDescent(X, Y, np.zeros((NUM_FEATURES, 1)), 1e-4, 1000, 0.1)
+    J, theta = gradient_descent(X, Y, np.zeros((NUM_FEATURES, 1)), 1e-4, 1000)
 
-    # print(f"The cost after training is {J:.8f}.")
-    # print(f"The resulting vector of weights is {[np.round(t, 8) for t in np.squeeze(theta)]}")
+    print(f"The cost after training is {J:.8f}.")
+    print(f"The resulting vector of weights is {[np.round(t, 8) for t in np.squeeze(theta)]}")
     
     predicted_labels = test_classifier(test_x, theta)
     predicted_labels = predicted_labels.reshape((1,-1))[0]

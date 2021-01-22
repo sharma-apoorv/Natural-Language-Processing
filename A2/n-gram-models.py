@@ -210,6 +210,79 @@ class BigramLanguageModel(UnigramLanguageModel):
 
         return math.pow(2, bigram_perplexity)
 
+class TrigramLanguageModel(BigramLanguageModel):
+    def __init__(self, tokens, smoothing=False, debug=False, file_pointer=None):
+        BigramLanguageModel.__init__(self, tokens, smoothing, debug, file_pointer)
+
+        self.trigram_corpus_length = 0
+        self.num_unique_trigrams = 0
+
+        self.trigram_freqs = {}
+        for i in range(2, len(tokens)):
+            t1, t2, t3 = tokens[i-2], tokens[i-1], tokens[i]
+
+            if t1 not in self.unigram_freqs: t1 = UNK
+            if t2 not in self.unigram_freqs: t2 = UNK
+            if t3 not in self.unigram_freqs: t3 = UNK
+
+            self.trigram_freqs[(t1, t2, t3)] = self.trigram_freqs.get((t1, t2, t3), 0) + 1
+        
+        self.trigram_corpus_length = sum(self.trigram_freqs.values())
+        self.num_unique_trigrams = len(list(self.trigram_freqs.keys()))
+
+        if self.debug:
+            if isinstance(self.file_pointer, io.TextIOWrapper):
+                self.file_pointer.write("\nTRIGRAM MODEL INIT\n")
+                for k,v in  self.trigram_freqs.items():
+                    self.file_pointer.write("{} {}\n".format(k,v))
+            else:
+                print("\nTRIGRAM MODEL INIT\n")
+                print(self.trigram_freqs)
+    
+    def _get_trigram_probability(self, trigram):
+        w1, w2, w3 = trigram
+
+        prob_numerator = self.trigram_freqs.get((w1, w2, w3), 0)
+        prob_denominator = self.bigram_freqs.get((w1, w2), 0)
+
+        if prob_denominator == 0:
+            return 0 # This will result in infinite perplexity!!
+
+        prob = float(prob_numerator) / float(prob_denominator)
+
+        if self.debug:
+            if isinstance(self.file_pointer, io.TextIOWrapper):
+                self.file_pointer.write(f"Trigram: {trigram} Prob = {prob_numerator}/{prob_denominator} = {prob:.5e}\n")
+            else:
+                print(f"Trigram: {trigram} Prob = {prob_numerator}/{prob_denominator} = {prob:.5e}")
+
+        return prob
+    
+    def _get_trigram_corpus_count(self, tokens):
+        num_trigrams = 0
+        if tokens:
+            num_trigrams = len(tokens) - 2 # There are n-2 trigrams in a list of n words
+
+        return num_trigrams
+    
+    def get_trigram_perplexity(self, tokens):
+        trigram_perplexity = 0
+        for i in range(2, len(tokens)):
+            t1, t2, t3 = tokens[i-2], tokens[i-1], tokens[i]
+            trigram_probability = self._get_trigram_probability((t1, t2, t3))
+            
+            try:
+                trigram_perplexity += math.log(trigram_probability, 2)
+            except:
+                # TODO: What are we supposed to do here ??
+                continue
+        
+        num_words = self._get_trigram_corpus_count(tokens)
+        trigram_perplexity = (-1 / num_words) * trigram_perplexity
+
+        return math.pow(2, trigram_perplexity)
+
+
 if __name__ == "__main__":
 
     output_file_name = "output.txt"
@@ -222,23 +295,30 @@ if __name__ == "__main__":
     dev_tokens = fp.get_dev_file_tokens()
     test_tokens = fp.get_test_file_tokens()
 
-    blm = BigramLanguageModel(train_tokens, debug=False, file_pointer=f)
+    lm = TrigramLanguageModel(train_tokens, debug=False, file_pointer=f)
 
     f.write(f"\n*********Model Information*********\n")
-    f.write('UNIGRAM MODEL\n')
-    f.write(f"Corpus Length: {blm.unigram_corpus_length}\tUnique Unigrams: {blm.num_unique_unigrams}\n\n")
+    f.write('Unigram Model\n')
+    f.write(f"Corpus Length: {lm.unigram_corpus_length}\t\tUnique Unigrams: {lm.num_unique_unigrams}\n\n")
 
-    f.write('BIGRAM MODEL\n')
-    f.write(f"Corpus Length: {blm.bigram_corpus_length}\tUnique Bigrams: {blm.num_unique_bigrams}\n")
+    f.write('Bigram Model\n')
+    f.write(f"Corpus Length: {lm.bigram_corpus_length}\t\tUnique Bigrams: {lm.num_unique_bigrams}\n\n")
+
+    f.write('Trigram Model\n')
+    f.write(f"Corpus Length: {lm.trigram_corpus_length}\t\tUnique Trigrams: {lm.num_unique_trigrams}\n")
 
     f.write(f"\n*********Model Evaluation*********\n")
     f.write("Perplexity Scores\n")
-    f.write(f"Unigram Perplexity (train): {blm.get_unigram_perplexity(train_tokens):.4f}\n")
-    f.write(f"Unigram Perplexity (dev): {blm.get_unigram_perplexity(dev_tokens):.4f}\n")
-    f.write(f"Unigram Perplexity (test): {blm.get_unigram_perplexity(test_tokens):.4f}\n\n")
+    f.write(f"Unigram Perplexity (train): {lm.get_unigram_perplexity(train_tokens):.4f}\n")
+    f.write(f"Unigram Perplexity (dev): {lm.get_unigram_perplexity(dev_tokens):.4f}\n")
+    f.write(f"Unigram Perplexity (test): {lm.get_unigram_perplexity(test_tokens):.4f}\n\n")
 
-    f.write(f"Bigram Perplexity (train): {blm.get_bigram_perplexity(train_tokens):.4f}\n")
-    f.write(f"Bigram Perplexity (dev): {blm.get_bigram_perplexity(dev_tokens):.4f}\n")
-    f.write(f"Bigram Perplexity (test): {blm.get_bigram_perplexity(test_tokens):.4f}\n\n")
+    f.write(f"Bigram Perplexity (train): {lm.get_bigram_perplexity(train_tokens):.4f}\n")
+    f.write(f"Bigram Perplexity (dev): {lm.get_bigram_perplexity(dev_tokens):.4f}\n")
+    f.write(f"Bigram Perplexity (test): {lm.get_bigram_perplexity(test_tokens):.4f}\n\n")
+
+    f.write(f"Trigram Perplexity (train): {lm.get_trigram_perplexity(train_tokens):.4f}\n")
+    f.write(f"Trigram Perplexity (dev): {lm.get_trigram_perplexity(dev_tokens):.4f}\n")
+    f.write(f"Trigram Perplexity (test): {lm.get_trigram_perplexity(test_tokens):.4f}\n\n")
 
     f.close()

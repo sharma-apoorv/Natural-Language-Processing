@@ -65,10 +65,10 @@ class FileParser:
         return sentence_list
 
 class UnigramLanguageModel:
-    def __init__(self, tokens, smoothing=False, smoothing_factor=0.5, debug=False, file_pointer=None):
+    def __init__(self, tokens, lidstone_smoothing=False, lidstone_smoothing_factor=0.5, debug=False, file_pointer=None):
         self.unigram_freqs = Counter(tokens)
-        self.smoothing = smoothing
-        self.smoothing_factor = smoothing_factor
+        self.lidstone_smoothing = lidstone_smoothing
+        self.lidstone_smoothing_factor = lidstone_smoothing_factor
 
         self.unigram_corpus_length = 0
         self.num_unique_unigrams = 0
@@ -103,9 +103,9 @@ class UnigramLanguageModel:
         prob_numerator = self.unigram_freqs.get(word, self.unigram_freqs[UNK])
         prob_denominator = self.unigram_corpus_length
 
-        if self.smoothing:
-            prob_numerator += self.smoothing_factor
-            prob_denominator += self.smoothing_factor
+        if self.lidstone_smoothing:
+            prob_numerator += self.lidstone_smoothing_factor
+            prob_denominator += self.lidstone_smoothing_factor
 
         prob = float(prob_numerator) / float(prob_denominator)
         
@@ -139,8 +139,8 @@ class UnigramLanguageModel:
         return math.pow(2, unigram_perplexity)
 
 class BigramLanguageModel(UnigramLanguageModel):
-    def __init__(self, tokens, smoothing=False, smoothing_factor=0.5, debug=False, file_pointer=None):
-        UnigramLanguageModel.__init__(self, tokens, smoothing, smoothing_factor, debug, file_pointer)
+    def __init__(self, tokens, lidstone_smoothing=False, lidstone_smoothing_factor=0.5, debug=False, file_pointer=None):
+        UnigramLanguageModel.__init__(self, tokens, lidstone_smoothing, lidstone_smoothing_factor, debug, file_pointer)
 
         self.bigram_corpus_length = 0
         self.num_unique_bigrams = 0
@@ -172,9 +172,9 @@ class BigramLanguageModel(UnigramLanguageModel):
         prob_numerator = self.bigram_freqs.get((curr_word, next_word), 0)
         prob_denominator = self.unigram_freqs.get(curr_word, self.unigram_freqs[UNK]) #TODO: Should this be a probability of UNK ?
 
-        if self.smoothing:
-            prob_numerator += self.smoothing_factor
-            prob_denominator += self.smoothing_factor
+        if self.lidstone_smoothing:
+            prob_numerator += self.lidstone_smoothing_factor
+            prob_denominator += self.lidstone_smoothing_factor
 
         if prob_denominator == 0:
             return 0
@@ -224,8 +224,8 @@ class BigramLanguageModel(UnigramLanguageModel):
         return math.pow(2, bigram_perplexity)
 
 class TrigramLanguageModel(BigramLanguageModel):
-    def __init__(self, tokens, smoothing=False, smoothing_factor=0.5, debug=False, file_pointer=None):
-        BigramLanguageModel.__init__(self, tokens, smoothing, smoothing_factor, debug, file_pointer)
+    def __init__(self, tokens, lidstone_smoothing=False, lidstone_smoothing_factor=0.5, debug=False, file_pointer=None):
+        BigramLanguageModel.__init__(self, tokens, lidstone_smoothing, lidstone_smoothing_factor, debug, file_pointer)
 
         self.trigram_corpus_length = 0
         self.num_unique_trigrams = 0
@@ -258,9 +258,9 @@ class TrigramLanguageModel(BigramLanguageModel):
         prob_numerator = self.trigram_freqs.get((w1, w2, w3), 0)
         prob_denominator = self.bigram_freqs.get((w1, w2), 0)
 
-        if self.smoothing:
-            prob_numerator += self.smoothing_factor
-            prob_denominator += self.smoothing_factor
+        if self.lidstone_smoothing:
+            prob_numerator += self.lidstone_smoothing_factor
+            prob_denominator += self.lidstone_smoothing_factor
 
         if prob_denominator == 0:
             return 0 # This will result in infinite perplexity!!
@@ -312,7 +312,7 @@ if __name__ == "__main__":
     test_tokens = fp.get_test_file_tokens()
 
     lm = TrigramLanguageModel(train_tokens, debug=False, file_pointer=f)
-    lm_ls = TrigramLanguageModel(train_tokens, smoothing=True, debug=False, file_pointer=f)
+    lm_ls = TrigramLanguageModel(train_tokens, lidstone_smoothing=True, debug=False, file_pointer=f)
 
     f.write(f"\n*********Model Information*********\n")
     f.write('Unigram Model\n')

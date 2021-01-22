@@ -65,10 +65,14 @@ class FileParser:
         return sentence_list
 
 class UnigramLanguageModel:
-    def __init__(self, tokens, smoothing=False, debug=False, file_pointer=None):
+    def __init__(self, tokens, smoothing=False, smoothing_factor=0.5, debug=False, file_pointer=None):
         self.unigram_freqs = Counter(tokens)
+        self.smoothing = smoothing
+        self.smoothing_factor = smoothing_factor
+
         self.unigram_corpus_length = 0
         self.num_unique_unigrams = 0
+        
         self.debug = debug
         self.file_pointer = file_pointer
         
@@ -98,6 +102,11 @@ class UnigramLanguageModel:
     def _get_unigram_probability(self, word):
         prob_numerator = self.unigram_freqs.get(word, self.unigram_freqs[UNK])
         prob_denominator = self.unigram_corpus_length
+
+        if self.smoothing:
+            prob_numerator += self.smoothing_factor
+            prob_denominator += self.smoothing_factor
+
         prob = float(prob_numerator) / float(prob_denominator)
         
         if self.debug:
@@ -130,8 +139,8 @@ class UnigramLanguageModel:
         return math.pow(2, unigram_perplexity)
 
 class BigramLanguageModel(UnigramLanguageModel):
-    def __init__(self, tokens, smoothing=False, debug=False, file_pointer=None):
-        UnigramLanguageModel.__init__(self, tokens, smoothing, debug, file_pointer)
+    def __init__(self, tokens, smoothing=False, smoothing_factor=0.5, debug=False, file_pointer=None):
+        UnigramLanguageModel.__init__(self, tokens, smoothing, smoothing_factor, debug, file_pointer)
 
         self.bigram_corpus_length = 0
         self.num_unique_bigrams = 0
@@ -162,6 +171,10 @@ class BigramLanguageModel(UnigramLanguageModel):
 
         prob_numerator = self.bigram_freqs.get((curr_word, next_word), 0)
         prob_denominator = self.unigram_freqs.get(curr_word, self.unigram_freqs[UNK]) #TODO: Should this be a probability of UNK ?
+
+        if self.smoothing:
+            prob_numerator += self.smoothing_factor
+            prob_denominator += self.smoothing_factor
 
         if prob_denominator == 0:
             return 0
@@ -211,8 +224,8 @@ class BigramLanguageModel(UnigramLanguageModel):
         return math.pow(2, bigram_perplexity)
 
 class TrigramLanguageModel(BigramLanguageModel):
-    def __init__(self, tokens, smoothing=False, debug=False, file_pointer=None):
-        BigramLanguageModel.__init__(self, tokens, smoothing, debug, file_pointer)
+    def __init__(self, tokens, smoothing=False, smoothing_factor=0.5, debug=False, file_pointer=None):
+        BigramLanguageModel.__init__(self, tokens, smoothing, smoothing_factor, debug, file_pointer)
 
         self.trigram_corpus_length = 0
         self.num_unique_trigrams = 0
@@ -244,6 +257,10 @@ class TrigramLanguageModel(BigramLanguageModel):
 
         prob_numerator = self.trigram_freqs.get((w1, w2, w3), 0)
         prob_denominator = self.bigram_freqs.get((w1, w2), 0)
+
+        if self.smoothing:
+            prob_numerator += self.smoothing_factor
+            prob_denominator += self.smoothing_factor
 
         if prob_denominator == 0:
             return 0 # This will result in infinite perplexity!!
@@ -282,7 +299,6 @@ class TrigramLanguageModel(BigramLanguageModel):
 
         return math.pow(2, trigram_perplexity)
 
-
 if __name__ == "__main__":
 
     output_file_name = "output.txt"
@@ -296,6 +312,7 @@ if __name__ == "__main__":
     test_tokens = fp.get_test_file_tokens()
 
     lm = TrigramLanguageModel(train_tokens, debug=False, file_pointer=f)
+    lm_ls = TrigramLanguageModel(train_tokens, smoothing=True, debug=False, file_pointer=f)
 
     f.write(f"\n*********Model Information*********\n")
     f.write('Unigram Model\n')
@@ -308,7 +325,7 @@ if __name__ == "__main__":
     f.write(f"Corpus Length: {lm.trigram_corpus_length}\t\tUnique Trigrams: {lm.num_unique_trigrams}\n")
 
     f.write(f"\n*********Model Evaluation*********\n")
-    f.write("Perplexity Scores\n")
+    f.write("Perplexity Scores (Unsmoothed)\n")
     f.write(f"Unigram Perplexity (train): {lm.get_unigram_perplexity(train_tokens):.4f}\n")
     f.write(f"Unigram Perplexity (dev): {lm.get_unigram_perplexity(dev_tokens):.4f}\n")
     f.write(f"Unigram Perplexity (test): {lm.get_unigram_perplexity(test_tokens):.4f}\n\n")
@@ -320,5 +337,18 @@ if __name__ == "__main__":
     f.write(f"Trigram Perplexity (train): {lm.get_trigram_perplexity(train_tokens):.4f}\n")
     f.write(f"Trigram Perplexity (dev): {lm.get_trigram_perplexity(dev_tokens):.4f}\n")
     f.write(f"Trigram Perplexity (test): {lm.get_trigram_perplexity(test_tokens):.4f}\n\n")
+
+    f.write("Perplexity Scores (Lidstone Smoothing)\n")
+    f.write(f"Unigram Perplexity (train): {lm_ls.get_unigram_perplexity(train_tokens):.4f}\n")
+    f.write(f"Unigram Perplexity (dev): {lm_ls.get_unigram_perplexity(dev_tokens):.4f}\n")
+    f.write(f"Unigram Perplexity (test): {lm_ls.get_unigram_perplexity(test_tokens):.4f}\n\n")
+
+    f.write(f"Bigram Perplexity (train): {lm_ls.get_bigram_perplexity(train_tokens):.4f}\n")
+    f.write(f"Bigram Perplexity (dev): {lm_ls.get_bigram_perplexity(dev_tokens):.4f}\n")
+    f.write(f"Bigram Perplexity (test): {lm_ls.get_bigram_perplexity(test_tokens):.4f}\n\n")
+
+    f.write(f"Trigram Perplexity (train): {lm_ls.get_trigram_perplexity(train_tokens):.4f}\n")
+    f.write(f"Trigram Perplexity (dev): {lm_ls.get_trigram_perplexity(dev_tokens):.4f}\n")
+    f.write(f"Trigram Perplexity (test): {lm_ls.get_trigram_perplexity(test_tokens):.4f}\n\n")
 
     f.close()

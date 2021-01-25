@@ -2,6 +2,7 @@
 
 Author: Apoorv Sharma
 Description:
+This project implements n-gram models (unigram, bigram and trigram) as well as interpolation smoothing for the trigram model.
 '''
 
 # Import common required python files
@@ -13,7 +14,6 @@ from random import random
 
 from collections import Counter
 from itertools import dropwhile
-from enum import Enum
 
 START_TOKEN = "<s>"
 STOP_TOKEN = "</s>"
@@ -66,7 +66,7 @@ class FileParser:
         return sentence_list
 
 class UnigramLanguageModel:
-    def __init__(self, tokens, lidstone_smoothing=False, lidstone_smoothing_factor=0.5, debug=False, file_pointer=None):
+    def __init__(self, tokens, unk_threshold=UNK_THRESHOLD, lidstone_smoothing=False, lidstone_smoothing_factor=0.5, debug=False, file_pointer=None):
         self.unigram_freqs = Counter(tokens)
         self.lidstone_smoothing = lidstone_smoothing
         self.lidstone_smoothing_factor = lidstone_smoothing_factor
@@ -79,7 +79,7 @@ class UnigramLanguageModel:
         
         # Convert the keys to UNK tokens based on threshold value
         unk_freq_count = 0
-        for key, count in dropwhile(lambda key_count: key_count[1] >= UNK_THRESHOLD, self.unigram_freqs.most_common()):
+        for key, count in dropwhile(lambda key_count: key_count[1] >= unk_threshold, self.unigram_freqs.most_common()):
             unk_freq_count += self.unigram_freqs[key]
             del self.unigram_freqs[key]
         self.unigram_freqs[UNK] = unk_freq_count
@@ -106,7 +106,7 @@ class UnigramLanguageModel:
 
         if self.lidstone_smoothing:
             prob_numerator += self.lidstone_smoothing_factor
-            prob_denominator += (self.lidstone_smoothing_factor)
+            prob_denominator += (self.lidstone_smoothing_factor * self.num_unique_unigrams)
 
         prob = float(prob_numerator) / float(prob_denominator)
         
@@ -140,8 +140,8 @@ class UnigramLanguageModel:
         return math.pow(2, unigram_perplexity)
 
 class BigramLanguageModel(UnigramLanguageModel):
-    def __init__(self, tokens, lidstone_smoothing=False, lidstone_smoothing_factor=0.5, debug=False, file_pointer=None):
-        UnigramLanguageModel.__init__(self, tokens, lidstone_smoothing, lidstone_smoothing_factor, debug, file_pointer)
+    def __init__(self, tokens, unk_threshold=UNK_THRESHOLD, lidstone_smoothing=False, lidstone_smoothing_factor=0.5, debug=False, file_pointer=None):
+        UnigramLanguageModel.__init__(self, tokens, unk_threshold, lidstone_smoothing, lidstone_smoothing_factor, debug, file_pointer)
 
         self.bigram_corpus_length = 0
         self.num_unique_bigrams = 0
@@ -179,7 +179,7 @@ class BigramLanguageModel(UnigramLanguageModel):
 
         if self.lidstone_smoothing:
             prob_numerator += self.lidstone_smoothing_factor
-            prob_denominator += (self.lidstone_smoothing_factor)
+            prob_denominator += (self.lidstone_smoothing_factor * self.num_unique_unigrams)
 
         if prob_denominator == 0: # this should never happen, since we convert to UNK tokens
             print(f"Error: '_get_bigram_probability()' has a denominator of 0 for {bigram}")
@@ -204,13 +204,6 @@ class BigramLanguageModel(UnigramLanguageModel):
             if bigram_prob: sentence_prob_sum += math.log(bigram_prob)
         
         return math.exp(sentence_prob_sum)
-    
-    def _get_bigram_corpus_count(self, tokens):
-        num_bigrams = 0
-        if tokens:
-            num_bigrams = len(tokens) - 1 # There are n-1 bigrams in a list of n words
-
-        return num_bigrams
 
     def get_bigram_perplexity(self, tokens):
         bigram_perplexity = 0
@@ -224,7 +217,6 @@ class BigramLanguageModel(UnigramLanguageModel):
                 # print(f"Bigram Perplexity Exception: {t1}\t{t2}\t{bigram_probability}")
                 return float('inf')
         
-        # num_words = self._get_bigram_corpus_count(tokens)
         num_words = self._get_unigram_corpus_count(tokens)
         bigram_perplexity = (-1 / num_words) * bigram_perplexity
 
@@ -232,10 +224,11 @@ class BigramLanguageModel(UnigramLanguageModel):
 
 class TrigramLanguageModel(BigramLanguageModel):
     def __init__(self,  tokens,\
+                        unk_threshold=UNK_THRESHOLD,\
                         lidstone_smoothing=False, lidstone_smoothing_factor=0.5,\
                         linear_interpolation_factors=(1/3, 1/3, 1/3),\
                         debug=False, file_pointer=None):
-        BigramLanguageModel.__init__(self, tokens, lidstone_smoothing, lidstone_smoothing_factor, debug, file_pointer)
+        BigramLanguageModel.__init__(self, tokens, unk_threshold, lidstone_smoothing, lidstone_smoothing_factor, debug, file_pointer)
 
         # assert sum(linear_interpolation_factors) == 1, "Sum of linear interpolation factors should be 1!"
         self.linear_interpolation_factors = linear_interpolation_factors
@@ -278,10 +271,13 @@ class TrigramLanguageModel(BigramLanguageModel):
 
         if self.lidstone_smoothing:
             prob_numerator += self.lidstone_smoothing_factor
-            prob_denominator += (self.lidstone_smoothing_factor)
+            prob_denominator += (self.lidstone_smoothing_factor * self.num_unique_unigrams)
+        
+        if prob_numerator == 0:
+            return 0
 
         if prob_denominator == 0:
-            # print(f"Error: '_get_trigram_probability()' has a denominator of 0 for {trigram}")
+            print(f"Error: '_get_trigram_probability()' has a denominator of 0 for ({t1}, {t2})")
             return float('inf')
 
         prob = float(prob_numerator) / float(prob_denominator)
@@ -312,15 +308,7 @@ class TrigramLanguageModel(BigramLanguageModel):
 
         return prob
     
-    def _get_trigram_corpus_count(self, tokens):
-        num_trigrams = 0
-        if tokens:
-            num_trigrams = len(tokens) - 2 # There are n-2 trigrams in a list of n words
-
-        return num_trigrams
-    
     def get_trigram_perplexity(self, tokens, linear_interpolation_smoothing=False):
-        # num_words = self._get_trigram_corpus_count(tokens)
         num_words = self._get_unigram_corpus_count(tokens)
         trigram_perplexity = 0
 
@@ -380,18 +368,18 @@ if __name__ == "__main__":
     f.write(f"Trigram Perplexity (dev): {lm.get_trigram_perplexity(dev_tokens):.4f}\n")
     f.write(f"Trigram Perplexity (test): {lm.get_trigram_perplexity(test_tokens):.4f}\n\n")
 
-    # f.write("Perplexity Scores (Lidstone Smoothing)\n")
-    # f.write(f"Unigram Perplexity (train): {lm_ls.get_unigram_perplexity(train_tokens):.4f}\n")
-    # f.write(f"Unigram Perplexity (dev): {lm_ls.get_unigram_perplexity(dev_tokens):.4f}\n")
-    # f.write(f"Unigram Perplexity (test): {lm_ls.get_unigram_perplexity(test_tokens):.4f}\n\n")
+    f.write("Perplexity Scores (Lidstone Smoothing)\n")
+    f.write(f"Unigram Perplexity (train): {lm_ls.get_unigram_perplexity(train_tokens):.4f}\n")
+    f.write(f"Unigram Perplexity (dev): {lm_ls.get_unigram_perplexity(dev_tokens):.4f}\n")
+    f.write(f"Unigram Perplexity (test): {lm_ls.get_unigram_perplexity(test_tokens):.4f}\n\n")
 
-    # f.write(f"Bigram Perplexity (train): {lm_ls.get_bigram_perplexity(train_tokens):.4f}\n")
-    # f.write(f"Bigram Perplexity (dev): {lm_ls.get_bigram_perplexity(dev_tokens):.4f}\n")
-    # f.write(f"Bigram Perplexity (test): {lm_ls.get_bigram_perplexity(test_tokens):.4f}\n\n")
+    f.write(f"Bigram Perplexity (train): {lm_ls.get_bigram_perplexity(train_tokens):.4f}\n")
+    f.write(f"Bigram Perplexity (dev): {lm_ls.get_bigram_perplexity(dev_tokens):.4f}\n")
+    f.write(f"Bigram Perplexity (test): {lm_ls.get_bigram_perplexity(test_tokens):.4f}\n\n")
 
-    # f.write(f"Trigram Perplexity (train): {lm_ls.get_trigram_perplexity(train_tokens):.4f}\n")
-    # f.write(f"Trigram Perplexity (dev): {lm_ls.get_trigram_perplexity(dev_tokens):.4f}\n")
-    # f.write(f"Trigram Perplexity (test): {lm_ls.get_trigram_perplexity(test_tokens):.4f}\n\n")
+    f.write(f"Trigram Perplexity (train): {lm_ls.get_trigram_perplexity(train_tokens):.4f}\n")
+    f.write(f"Trigram Perplexity (dev): {lm_ls.get_trigram_perplexity(dev_tokens):.4f}\n")
+    f.write(f"Trigram Perplexity (test): {lm_ls.get_trigram_perplexity(test_tokens):.4f}\n\n")
 
     f.write("****Perplexity Scores (Linear Interpolation Smoothing)****\n")
     # f.write(f"Trigram Perplexity (train): {lm_ls.get_trigram_perplexity(train_tokens, linear_interpolation_smoothing=True):.4f}\n")
@@ -417,15 +405,34 @@ if __name__ == "__main__":
         # hyperparms = tuple([h/s for h in hyperparms])
 
         # print(f"{i+1}/{num_attempts}")
-        hyper_lm = TrigramLanguageModel(train_tokens, lidstone_smoothing=True, linear_interpolation_factors=hyperparms, debug=False)
+        hyper_lm = TrigramLanguageModel(train_tokens, lidstone_smoothing=False, linear_interpolation_factors=hyperparms, debug=False)
         
         perplexity_tr = hyper_lm.get_trigram_perplexity(train_tokens, linear_interpolation_smoothing=True)
         perplexity_d = hyper_lm.get_trigram_perplexity(dev_tokens, linear_interpolation_smoothing=True)
         perplexity_te = hyper_lm.get_trigram_perplexity(test_tokens, linear_interpolation_smoothing=True)
 
-        f.write(f"PTr {hyperparms[0]:.2f},{hyperparms[1]:.2f},{hyperparms[2]:.2f},{perplexity_tr:.4f}\n")
-        f.write(f"PD: {hyperparms[0]:.2f},{hyperparms[1]:.2f},{hyperparms[2]:.2f},{perplexity_d:.4f}\n")
-        f.write(f"PTe: {hyperparms[0]:.2f},{hyperparms[1]:.2f},{hyperparms[2]:.2f},{perplexity_te:.4f}\n\n")
+        f.write(f"PTr {hyperparms[0]:.2f}, {hyperparms[1]:.2f}, {hyperparms[2]:.2f}, {perplexity_tr:.4f}\n")
+        f.write(f"PD: {hyperparms[0]:.2f}, {hyperparms[1]:.2f}, {hyperparms[2]:.2f}, {perplexity_d:.4f}\n")
+        f.write(f"PTe: {hyperparms[0]:.2f}, {hyperparms[1]:.2f}, {hyperparms[2]:.2f}, {perplexity_te:.4f}\n\n")
 
     # hyperparms_fp.close()
+
+    # Question 4.3.3 - Half the training set
+    train_tokens_half = train_tokens[:int(len(train_tokens)/2)] # approx correct
+    factors = (0.33, 0.33, 0.33)
+    lm = TrigramLanguageModel(train_tokens_half, lidstone_smoothing=False, linear_interpolation_factors=factors, debug=False, file_pointer=f)
+
+    perplexity_d = lm.get_trigram_perplexity(dev_tokens, linear_interpolation_smoothing=True)
+    perplexity_te = lm.get_trigram_perplexity(test_tokens, linear_interpolation_smoothing=True)
+
+    f.write("****Perplexity Scores (4.3.3)****\n")
+    f.write(f"4.3.3-PD: {hyperparms[0]:.2f}, {hyperparms[1]:.2f}, {hyperparms[2]:.2f}, {perplexity_d:.4f}\n")
+    f.write(f"4.3.3-PTe: {hyperparms[0]:.2f}, {hyperparms[1]:.2f}, {hyperparms[2]:.2f}, {perplexity_te:.4f}\n\n")
+
+    lm = TrigramLanguageModel(train_tokens, unk_threshold=5, lidstone_smoothing=False, linear_interpolation_factors=factors, debug=False, file_pointer=f)
+    f.write("****Perplexity Scores (4.3.4)****\n")
+    f.write(f"Unigram Perplexity (train): {lm.get_unigram_perplexity(train_tokens):.4f}\n")
+    f.write(f"Unigram Perplexity (dev): {lm.get_unigram_perplexity(dev_tokens):.4f}\n")
+    f.write(f"Unigram Perplexity (test): {lm.get_unigram_perplexity(test_tokens):.4f}\n\n")
+
     f.close()

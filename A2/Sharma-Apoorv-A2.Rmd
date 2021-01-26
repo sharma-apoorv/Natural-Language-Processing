@@ -1,0 +1,162 @@
+---
+title: 'Assignment 2: Language Models'
+author: "Apoorv Sharma"
+date: "1/24/2021"
+output: pdf_document
+---
+
+#### Question 1
+####
+
+Consider 3 words: $i, j$ and $k$ that have index values $m, m+1$ and $m+2$ , respectively
+
+From the language we know:
+
+$P(w_m = i) = \frac{1}{|V|}$
+
+$P(w_{m+1} = j) = \frac{1}{|V|}$
+
+$P(w_{m+2} = k) = \frac{1}{|V|}$
+
+Thus:
+
+$P(w_{m} \neq i \text{ OR } w_{m+1} \neq j)= 1 - \frac{1}{V^2}$
+
+$P(w_{m+1} \neq i \text{ OR } w_{m+2} \neq j \mid w_{m+1} \neq j) = 1 - \frac{1}{V}\frac{1}{V-1} = 1 - \frac{1}{V^2}$
+
+Thus for a corpus size of $M$ with vocabulary size $V$ we have
+
+$(1 - \frac{1}{V^2}) \cdot (1 - \frac{1}{V^2})^{M-1} = (1 - \frac{1}{V^2})^{M}$
+
+#### Question 2\
+####
+
+Following are the inputs and deesired output of the neural network:
+
+```{r table2, echo=FALSE, message=FALSE, results='asis', warnings=FALSE}
+tabl <- "
+| x1 | x2 | f(x1, x2) |
+|----|----|-----------|
+| 1  | 1  | -1        |
+| 1  | 0  |  1        |
+| 0  | 1  |  1        |
+| 0  | 0  | -1        |
+"
+cat(tabl)
+```
+
+Since we have 1 hidden layer, the model can be represented by the following function:
+
+$f(\vec{x}; \text{ }\vec{W}, \vec{c}, \vec{w}, \vec{b}) = sign(\vec{w}^T \cdot max(0, \vec{W}^T \cdot x + c) + b)$
+
+
+Assign the following weights:
+$$ 
+W = 
+\left(\begin{array}{cc} 
+1 & 1\\
+1 & 1
+\end{array}\right)
+$$
+$$ 
+c = 
+\left(\begin{array}{cc} 
+0\\
+-1
+\end{array}\right)
+$$
+$$ 
+w = 
+\left(\begin{array}{cc} 
+1\\
+-2
+\end{array}\right)
+$$
+$b = 0$
+
+Proving the weights 
+
+$$ 
+X\cdot W = 
+\left(\begin{array}{cc} 
+0 & 0\\ 
+0 & 1\\
+1 & 0\\
+1 & 1
+\end{array}\right)
+\left(\begin{array}{cc} 
+1 & 1\\
+1 & 1
+\end{array}\right)
+= 
+\left(\begin{array}{cc} 
+0 & 0\\ 
+1 & 1\\
+1 & 1\\
+2 & 2
+\end{array}\right)
+$$
+
+$$ 
+max(X\cdot W + c) = 
+max(\left(\begin{array}{cc} 
+0 & 0\\ 
+1 & 1\\
+1 & 1\\
+2 & 2
+\end{array}\right)
++
+\left(\begin{array}{cc} 
+0 & -1\\
+0 & -1\\
+0 & -1\\
+0 & -1\\
+\end{array}\right))
+= 
+max(\left(\begin{array}{cc} 
+0 & -1\\ 
+1 & 0\\
+1 & 0\\
+2 & 1
+\end{array}\right))
+=
+\left(\begin{array}{cc} 
+0 & 0\\ 
+1 & 0\\
+1 & 0\\
+2 & 1
+\end{array}\right)
+$$
+
+$$
+sign((X\cdot W + c) \cdot w) = 
+sign(\left(\begin{array}{cc} 
+0 & 0\\ 
+1 & 0\\
+1 & 0\\
+2 & 1
+\end{array}\right)
+\cdot
+\left(\begin{array}{cc} 
+1\\
+-2
+\end{array}\right))
+=
+sign(\left(\begin{array}{cc} 
+0 \\
+1 \\
+1 \\
+0
+\end{array}\right))
+=
+\left(\begin{array}{cc} 
+-1 \\
+1 \\
+1 \\
+-1
+\end{array}\right)
+$$
+
+#### Question 3\
+
+If all the weights are initialized to 0, the derivative with respect to the loss function will be the same for every weight in the weight matrix. Therefore all the weights will have the same value in the subsequent iterations and the weights will never change. As a result the model will never be trained.

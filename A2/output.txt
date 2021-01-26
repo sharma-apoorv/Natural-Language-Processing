@@ -1,0 +1,76 @@
+
+*********Model Information*********
+Unigram Model
+Corpus Length: 1622905		Unique Unigrams: 26602
+
+Bigram Model
+Corpus Length: 1684434		Unique Bigrams: 510392
+
+Trigram Model
+Corpus Length: 1684433		Unique Trigrams: 1116160
+
+*********Model Evaluation*********
+****Perplexity Scores (Unsmoothed)****
+Unigram Perplexity (train): 1105.5403
+Unigram Perplexity (dev): 1009.9143
+Unigram Perplexity (test): 1015.3158
+
+Bigram Perplexity (train): 77.0735
+Bigram Perplexity (dev): inf
+Bigram Perplexity (test): inf
+
+Trigram Perplexity (train): 7.8729
+Trigram Perplexity (dev): inf
+Trigram Perplexity (test): inf
+
+Perplexity Scores (Lidstone Smoothing)
+Unigram Perplexity (train): 1106.1765
+Unigram Perplexity (dev): 1011.2453
+Unigram Perplexity (test): 1016.5973
+
+Bigram Perplexity (train): 978.8943
+Bigram Perplexity (dev): 1251.1889
+Bigram Perplexity (test): 1247.5270
+
+Trigram Perplexity (train): 4020.5838
+Trigram Perplexity (dev): 8019.1787
+Trigram Perplexity (test): 7991.0045
+
+****Perplexity Scores (Linear Interpolation Smoothing)****
+PTr 0.01, 0.05, 0.94, 8.1494
+PD: 0.01, 0.05, 0.94, 2360.2248
+PTe: 0.01, 0.05, 0.94, 2354.1756
+
+PTr 0.07, 0.08, 0.85, 8.8966
+PD: 0.07, 0.08, 0.85, 885.6395
+PTe: 0.07, 0.08, 0.85, 884.7960
+
+PTr 0.06, 0.14, 0.70, 10.6769
+PD: 0.06, 0.14, 0.70, 978.8043
+PTe: 0.06, 0.14, 0.70, 978.3856
+
+PTr 0.20, 0.20, 0.60, 12.1013
+PD: 0.20, 0.20, 0.60, 540.2321
+PTe: 0.20, 0.20, 0.60, 540.6785
+
+PTr 0.20, 0.30, 0.50, 14.2190
+PD: 0.20, 0.30, 0.50, 554.8653
+PTe: 0.20, 0.30, 0.50, 555.6197
+
+PTr 0.33, 0.33, 0.33, 20.6060
+PD: 0.33, 0.33, 0.33, 491.8504
+PTe: 0.33, 0.33, 0.33, 493.0516
+
+PTr 0.10, 0.30, 0.60, 12.0533
+PD: 0.10, 0.30, 0.60, 736.4886
+PTe: 0.10, 0.30, 0.60, 736.9305
+
+****Perplexity Scores (4.3.3)****
+4.3.3-PD: 0.10, 0.30, 0.60, 468.3740
+4.3.3-PTe: 0.10, 0.30, 0.60, 471.4108
+
+****Perplexity Scores (4.3.4)****
+Unigram Perplexity (train): 909.6217
+Unigram Perplexity (dev): 853.7755
+Unigram Perplexity (test): 856.9755
+

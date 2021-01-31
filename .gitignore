@@ -1,1 +1,9 @@
+# General files
 .vscode/settings.json
+
+# A3 files to ignore
+A3/tokens/*
+A3/glove*
+A3/*.out
+A3/*.zip
+A3/*.tar.gz

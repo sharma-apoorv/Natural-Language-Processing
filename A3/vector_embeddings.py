@@ -11,7 +11,6 @@ import math
 
 # Import speical libraries
 import numpy as np
-import scipy.spatial.distance # TODO: NEED TO REMOVE!
 
 class GloVeWordEmbeddings():
     def __init__(self, glove_file_path, num_dims):
@@ -39,14 +38,8 @@ class GloVeWordEmbeddings():
         return np.dot(vecA, vecB) / (np.linalg.norm(vecA) * np.linalg.norm(vecB))
 
     def _get_closest_words(self, embedding):
-        return sorted(self.embeddings_dict.keys(), key=lambda w: self._get_cosine_similarity(self.embeddings_dict[w], embedding))
-
-    def _get_closest_words_2(self, embedding):
-        '''
-        Function for debug only ... TODO: NEED TO REMOVE!
-        '''
-        return sorted(self.embeddings_dict.keys(), key=lambda w: (1 - scipy.spatial.distance.cosine(self.embeddings_dict[w], embedding)))
-
+        return sorted(self.embeddings_dict.keys(), key=lambda w: self._get_cosine_similarity(self.embeddings_dict[w], embedding), reverse=True)
+    
     def _get_embedding_for_word(self, word: str) -> np.array:
         if word in self.embeddings_dict.keys():
             return self.embeddings_dict[word]
@@ -63,10 +56,7 @@ class GloVeWordEmbeddings():
             print(f"{word} does not exist in the embeddings.")
             return []
         
-        l1 = self._get_closest_words(embedding)[:num_closest_words]
-        l2 = self._get_closest_words_2(embedding)[:num_closest_words]
-
-        return l1, l2
+        return self._get_closest_words(embedding)[1:num_closest_words+1]
     
     def get_word_analogy_closest_word(self, w1, w2, w3, num_closest_words=1):
         e1 = self._get_embedding_for_word(w1)
@@ -78,7 +68,7 @@ class GloVeWordEmbeddings():
             return
 
         embedding = e1 - e2 + e3
-        return self._get_closest_words_2(embedding)[:num_closest_words]
+        return self._get_closest_words(embedding)[:num_closest_words]
 
 if __name__ == '__main__':
     print("CSE 447 - NLP")

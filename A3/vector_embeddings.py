@@ -49,6 +49,7 @@ class GloVeWordEmbeddings():
         '''
         References:
         https://medium.com/analytics-vidhya/basics-of-using-pre-trained-glove-vectors-in-python-d38905f356db
+        https://towardsdatascience.com/cosine-similarity-how-does-it-measure-the-similarity-maths-behind-and-usage-in-python-50ad30aad7db
         '''
 
         embedding = self._get_embedding_for_word(word)
@@ -65,10 +66,10 @@ class GloVeWordEmbeddings():
 
         if e1.size == 0 or e2.size == 0 or e3.size == 0:
             print(f"{w1}:{e1.size}  {w2}:{e2.size}  {w3}:{e3.size}")
-            return
+            return []
 
         embedding = e1 - e2 + e3
-        return self._get_closest_words(embedding)[:num_closest_words]
+        return self._get_closest_words(embedding)[1:num_closest_words+1]
 
 if __name__ == '__main__':
     print("CSE 447 - NLP")
@@ -77,7 +78,7 @@ if __name__ == '__main__':
     output_file_name = "output.txt"
     output_file = open(output_file_name, "w")
 
-    _num_closest_words = 5
+    _num_closest_words = 1
 
     output_file.write(f"*********Question 3.1*********\n")
 

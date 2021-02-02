@@ -9,6 +9,7 @@ import os
 import random
 import re
 from collections import Counter
+import argparse
 
 # Import special libraries
 import numpy as np
@@ -94,7 +95,9 @@ class GloVeWordEmbeddings():
             return []
 
         embedding = e1 - e2 + e3
-        return self._get_closest_words(embedding)[1:num_closest_words+1]
+        closest_words = self._get_closest_words(embedding)
+        for w in [w1, w2, w3]: closest_words.remove(w)
+        return closest_words[:num_closest_words]
 
 class CornellMovieReviewFiles():
     def __init__(self, 
@@ -389,16 +392,21 @@ def sentiment_classification(output_file):
     evaluate(model, test_dataloader, device)
 
 if __name__ == '__main__':
-    # glove = GloVeWordEmbeddings('glove.42B.300d.txt', 300)
+    parser = argparse.ArgumentParser(description='Vector Embeddings')
+    parser.add_argument("-g", "--word-emb", dest="word_embs", type=str, required=True)
+    args = parser.parse_args()
+
+    glove = GloVeWordEmbeddings(args.word_embs, 300)
 
     output_file_name = "output.txt"
     output_file = open(output_file_name, "w")
 
     # Question 3.1 and 3.2
-    # word_embedding_questions(glove, output_file)
+    word_embedding_questions(glove, output_file)
 
     # Question 3.3
-    sentiment_classification(output_file_name)
-
+    # sentiment_classification(output_file_name)
 
     print(f"Done! Check {output_file_name} for details.")
+
+    output_file.close()

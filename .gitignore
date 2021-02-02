@@ -1,6 +1,16 @@
 # General files
 .vscode/settings.json
 
+*.zip
+*.xlsx
+*.docx
+
+# A1 files to ignore
+A1/txt_sentoken/*
+A1/**/*.txt
+A1/*.out
+A1/*.tar.gz
+
 # A3 files to ignore
 A3/tokens/*
 A3/glove*

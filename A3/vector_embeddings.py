@@ -15,11 +15,12 @@ import numpy as np
 
 import nltk
 nltk.download('punkt')
-# import torch
-# from torch import nn
-# import torch.nn.functional as F
-# from torch.utils.data import Dataset, DataLoader
-# from tqdm import tqdm
+
+import torch
+from torch import nn
+import torch.nn.functional as F
+from torch.utils.data import Dataset, DataLoader
+from tqdm import tqdm
 
 # Hyperparameters
 MAX_SEQ_LEN = -1  # -1 for no truncation
@@ -32,6 +33,7 @@ HIDDEN_DIM = 256
 N_RNN_LAYERS = 2
 
 # Data cleaning parms
+L_RAW, L_LABEL, L_TOKENS = "raw", "label", "text"
 PAD = "@@PAD@@"
 UNK = "@@UNK@@"
 
@@ -136,14 +138,14 @@ class CornellMovieReviewFiles():
         model input.
         """
         for review in data:
-            review[self.TEXT] = [self.token_to_index.get(token, self.token_to_index[UNK]) for token in review[self.TEXT]]
+            review[L_TOKENS] = [self.token_to_index.get(token, self.token_to_index[UNK]) for token in review[L_TOKENS]]
 
     def _create_vocab(self, data, unk_threshold=UNK_THRESHOLD):
         """
         Creates a vocabulary with tokens that have frequency above unk_threshold and assigns each token
         a unique index, including the special tokens.
         """
-        counter = Counter(token for review in data for token in review[self.TEXT])
+        counter = Counter(token for review in data for token in review[L_TOKENS])
         vocab = {token for token in counter if counter[token] > unk_threshold}
         # print(f"Vocab size: {len(vocab) + 2}")  # add the special tokens
         # print(f"Most common tokens: {counter.most_common(10)}")
@@ -164,8 +166,8 @@ class CornellMovieReviewFiles():
                 elif file.split("/")[1] == "neg": label = self.NEG
 
                 data.append({
-                    self.RAW: f.read(),
-                    self.LABEL: label
+                    L_RAW: f.read(),
+                    L_LABEL: label
                 })
         
         return data
@@ -178,17 +180,16 @@ class CornellMovieReviewFiles():
 
         Reference: CSE-447 Section AB
         """
-        for example in data:
-            example[self.TEXT] = []
-            for sent in nltk.sent_tokenize(example[self.RAW]):
-                example[self.TEXT].extend(nltk.word_tokenize(sent))
+        for review in data:
+            review[L_TOKENS] = []
+            for sent in nltk.sent_tokenize(review[L_RAW]):
+                review[L_TOKENS].extend(nltk.word_tokenize(sent))
             if max_seq_len >= 0:
-                example[self.TEXT] = example[self.TEXT][:max_seq_len]
+                review[L_TOKENS] = review[L_TOKENS][:max_seq_len]
 
     def pre_process_data(self):
         # Create a dictionary with labels and raw text for each dataset
         self.train_dataset, self.dev_dataset, self.test_dataset = [], [], []
-        self.RAW, self.LABEL, self.TEXT = "raw", "label", "text"
         self.POS, self.NEG = 1, 0
 
         # Create a list of information for file to parse
@@ -218,6 +219,89 @@ class CornellMovieReviewFiles():
     def get_test_data(self):
         return self.test_dataset
 
+class SentimentDataset(Dataset):
+    def __init__(self, data, pad_idx):
+        data = sorted(data, key=lambda review: len(review[L_TOKENS]))
+        self.texts = [review[L_TOKENS] for review in data]
+        self.labels = [review[L_LABEL] for review in data]
+        self.pad_idx = pad_idx
+
+    def __getitem__(self, index):
+        return [self.texts[index], self.labels[index]]
+
+    def __len__(self):
+        return len(self.texts)
+
+    def collate_fn(self, batch):
+        def tensorize(elements, dtype):
+            return [torch.tensor(element, dtype=dtype) for element in elements]
+
+        def pad(tensors):
+            """Assumes 1-d tensors."""
+            max_len = max(len(tensor) for tensor in tensors)
+            padded_tensors = [
+                F.pad(tensor, (0, max_len - len(tensor)), value=self.pad_idx) for tensor in tensors
+            ]
+            return padded_tensors
+
+        texts, labels = zip(*batch)
+        return [
+            torch.stack(pad(tensorize(texts, torch.long)), dim=0),
+            torch.stack(tensorize(labels, torch.long), dim=0),
+        ]
+
+class SequenceClassifier(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, n_labels, n_rnn_layers, pad_idx):
+        super().__init__()
+
+        self.pad_idx = pad_idx
+
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.rnn = nn.GRU(
+            embedding_dim, hidden_dim, num_layers=n_rnn_layers, batch_first=True, bidirectional=True
+        )
+        # We take the final hidden state at all GRU layers as the sequence representation.
+        # 2 because bidirectional.
+        layered_hidden_dim = hidden_dim * n_rnn_layers * 2
+        self.output = nn.Linear(layered_hidden_dim, n_labels)
+
+    def forward(self, text):
+        # text shape: (batch_size, max_seq_len) where max_seq_len is the max length *in this batch*
+        # lens shape: (batch_size,)
+        non_padded_positions = text != self.pad_idx
+        lens = non_padded_positions.sum(dim=1)
+
+        # embedded shape: (batch_size, max_seq_len, embedding_dim)
+        embedded = self.embedding(text)
+        # You can pass the embeddings directly to the RNN, but as the input potentially has
+        # different lengths, how do you know when to stop unrolling the recurrence for each example?
+        # pytorch provides a util function pack_padded_sequence that converts padded sequences with
+        # potentially different lengths into a special PackedSequence object that keeps track of
+        # these things. When passing a PackedSequence object into the RNN, the output will be a
+        # PackedSequence too (but not the hidden state as that always has a length of 1). Since we
+        # do not use the per-token output, we do not unpack it. But if you need it, e.g. for
+        # token-level classification such as POS tagging, you can use pad_packed_sequence to convert
+        # it back to a regular tensor.
+        packed_embedded = nn.utils.rnn.pack_padded_sequence(
+            embedded, lens.cpu(), batch_first=True, enforce_sorted=False
+        )
+        # nn.GRU produces two outputs: one is the per-token output and the other is per-sequence.
+        # The pers-sequence output is simiar to the last per-token output, except that it is taken
+        # at all layers.
+        # output (after unpacking) shape: (batch_size, max_seq_len, hidden_dim)
+        # hidden shape: (n_layers * n_directions, batch_size, hidden_dim)
+        packed_output, hidden = self.rnn(packed_embedded)
+        # shape: (batch_size, n_layers * n_directions * hidden_dim)
+        hidden = hidden.transpose(0, 1).reshape(hidden.shape[1], -1)
+        # Here we directly output the raw scores without softmax normalization which would produce
+        # a valid probability distribution. This is because:
+        # (1) during training, pytorch provides a loss function "F.cross_entropy" that combines
+        # "log_softmax + F.nll_loss" in one step. See the `train` function below.
+        # (2) during evaluation, we usually only care about the class with the highest score, but
+        # not the actual probablity distribution.
+        # shape: (batch_size, n_labels)
+        return self.output(hidden)
+
 def word_embedding_questions(glove, output_file):
 
     _num_closest_words = 1
@@ -234,12 +318,75 @@ def word_embedding_questions(glove, output_file):
     for w1, w2, w3 in word_analogy_list:
         output_file.write(f"{w1} : {w2} :: {w3} : {glove.get_word_analogy_closest_word(w1, w2, w3, num_closest_words=_num_closest_words)}\n")
 
+def train(model, dataloader, optimizer, device):
+    for texts, labels in tqdm(dataloader):
+        texts, labels = texts.to(device), labels.to(device)
+        output = model(texts)
+        loss = F.cross_entropy(output, labels)
+        model.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+def evaluate(model, dataloader, device):
+    count = correct = 0.0
+    with torch.no_grad():
+        for texts, labels in tqdm(dataloader):
+            texts, labels = texts.to(device), labels.to(device)
+            # shape: (batch_size, n_labels)
+            output = model(texts)
+            # shape: (batch_size,)
+            predicted = output.argmax(dim=-1)
+            count += len(predicted)
+            correct += (predicted == labels).sum().item()
+    print(f"Accuracy: {correct / count}")
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 def sentiment_classification(output_file):
     cmr = CornellMovieReviewFiles()
     cmr.pre_process_data()
     
     token_to_index_mapping = cmr.get_token_to_index_mapping()
     train_data, dev_data, test_data = cmr.get_train_data(), cmr.get_dev_data(), cmr.get_test_data()
+
+    pad_idx = token_to_index_mapping[PAD]
+    label_to_idx = {"neg": 0, "pos": 1}
+    
+    # Create instances of dataset classes
+    train_dataset = SentimentDataset(train_data, pad_idx)
+    dev_dataset = SentimentDataset(dev_data, pad_idx)
+    test_dataset = SentimentDataset(test_data, pad_idx)
+
+    # Not sure what this is exactly ... ?
+    train_dataloader = DataLoader(
+        train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=train_dataset.collate_fn
+    )
+    dev_dataloader = DataLoader(
+        dev_dataset, batch_size=BATCH_SIZE, collate_fn=dev_dataset.collate_fn
+    )
+    test_dataloader = DataLoader(
+        test_dataset, batch_size=BATCH_SIZE, collate_fn=test_dataset.collate_fn
+    )
+
+    model = SequenceClassifier(
+        len(token_to_index_mapping), EMBEDDING_DIM, HIDDEN_DIM, len(label_to_idx), N_RNN_LAYERS, pad_idx
+    )
+    print(f"Model has {count_parameters(model)} parameters.")
+
+    # Adam is just a fancier version of SGD.
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
+    print(f"Random baseline")
+    evaluate(model, dev_dataloader, device)
+    for epoch in range(N_EPOCHS):
+        print(f"Epoch {epoch + 1}")  # 0-based -> 1-based
+        train(model, train_dataloader, optimizer, device)
+        evaluate(model, dev_dataloader, device)
+    print(f"Test set performance")
+    evaluate(model, test_dataloader, device)
 
 if __name__ == '__main__':
     # glove = GloVeWordEmbeddings('glove.42B.300d.txt', 300)

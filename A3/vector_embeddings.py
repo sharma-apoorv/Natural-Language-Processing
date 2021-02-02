@@ -157,23 +157,24 @@ def word_embedding_questions(glove, output_file):
     
     output_file.write(f"\n*********Question 3.2*********\n")
 
-    word_analogy_list = [("dog", "puppy", "cat"), ("speak", "speaker", "sing"), ("France", "French", "England"), ("France", "wine", "England")]
+    word_analogy_list = [("dog", "puppy", "cat"), ("speak", "speaker", "sing"), ("france", "french", "england"), ("france", "wine", "england")]
     for w1, w2, w3 in word_analogy_list:
         output_file.write(f"{w1} : {w2} :: {w3} : {glove.get_word_analogy_closest_word(w1, w2, w3, num_closest_words=_num_closest_words)}\n")
 
 if __name__ == '__main__':
-    print("CSE 447 - NLP")
-    # glove = GloVeWordEmbeddings('glove.42B.300d.txt', 300)
+    glove = GloVeWordEmbeddings('glove.42B.300d.txt', 300)
 
     output_file_name = "output.txt"
     output_file = open(output_file_name, "w")
 
     # Question 3.1 and 3.2
-    # word_embedding_questions(glove, output_file)
+    word_embedding_questions(glove, output_file)
 
     # Question 3.3
-    cmr = CornellMovieReviewFiles()
-    cmr.get_test_file_tokens(clean_tokens=False)
-    cmr.get_test_file_tokens(clean_tokens=True)
+    # cmr = CornellMovieReviewFiles()
+    # cmr.get_test_file_tokens(clean_tokens=False)
+    # cmr.get_test_file_tokens(clean_tokens=True)
     
     output_file.close()
+
+    print(f"Done! Check {output_file_name} for details.")

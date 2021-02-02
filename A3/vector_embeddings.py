@@ -8,9 +8,32 @@ Description:
 import os
 import random
 import re
+from collections import Counter
 
-# Import speical libraries
+# Import special libraries
 import numpy as np
+
+import nltk
+nltk.download('punkt')
+# import torch
+# from torch import nn
+# import torch.nn.functional as F
+# from torch.utils.data import Dataset, DataLoader
+# from tqdm import tqdm
+
+# Hyperparameters
+MAX_SEQ_LEN = -1  # -1 for no truncation
+UNK_THRESHOLD = 5
+BATCH_SIZE = 128
+N_EPOCHS = 20
+LEARNING_RATE = 1e-3
+EMBEDDING_DIM = 128
+HIDDEN_DIM = 256
+N_RNN_LAYERS = 2
+
+# Data cleaning parms
+PAD = "@@PAD@@"
+UNK = "@@UNK@@"
 
 class GloVeWordEmbeddings():
     def __init__(self, glove_file_path, num_dims):
@@ -93,8 +116,9 @@ class CornellMovieReviewFiles():
         NUM_DEV_FILES = int(NUM_FILES * (dev_percent / 100))
         NUM_TEST_FILES = NUM_FILES - (NUM_TRAIN_FILES + NUM_DEV_FILES)
 
-        # Generate a list of test files
         self.train_files_list, self.dev_files_list, self.test_files_list = [], [], []
+
+        # Generate a list of test files
         random_files_index = random.sample(range(len(movie_review_file_list)), NUM_TRAIN_FILES)
         self.train_files_list = [movie_review_file_list[i] for i in random_files_index] # train files list
 
@@ -105,45 +129,94 @@ class CornellMovieReviewFiles():
 
         for index in sorted(random_files_index, reverse=True): del movie_review_file_list[index]
         self.test_files_list = movie_review_file_list[:]
-    
-    def _tokenize_clean(self, text: str) -> list:
-        """ Function to tokenize a sentence (break up into words)
-        based on the TOKENIZER regex
 
-        Parameters
-        ----------
-        text: A string that needs to be tokenized
-
-        Returns
-        ----------
-        A list of tokens
+    def _apply_vocab(self, data):
         """
-        TOKENIZER = re.compile(f'([!"#$%&\'()*+,-./:;<=>?@[\\]^_`|~“”¨«»®´·º½¾¿¡§£₤‘’\n\t])')
-        return TOKENIZER.sub(r' \1 ', text).split()
-    
-    def _get_file_tokens(self, file_list, clean_tokens=False):
-        tokens = []
-        for file in file_list:
-        
+        Applies the vocabulary to the data and maps the tokenized sentences to vocab indices as the
+        model input.
+        """
+        for review in data:
+            review[self.TEXT] = [self.token_to_index.get(token, self.token_to_index[UNK]) for token in review[self.TEXT]]
+
+    def _create_vocab(self, data, unk_threshold=UNK_THRESHOLD):
+        """
+        Creates a vocabulary with tokens that have frequency above unk_threshold and assigns each token
+        a unique index, including the special tokens.
+        """
+        counter = Counter(token for review in data for token in review[self.TEXT])
+        vocab = {token for token in counter if counter[token] > unk_threshold}
+        # print(f"Vocab size: {len(vocab) + 2}")  # add the special tokens
+        # print(f"Most common tokens: {counter.most_common(10)}")
+        token_to_idx = {PAD: 0, UNK: 1}
+        for token in vocab:
+            token_to_idx[token] = len(token_to_idx)
+        return token_to_idx
+
+    def _create_dataset(self, files_list):
+
+        data = []
+        for file in files_list:
+            
+            # Read the file to analyze
             with open(file) as f:
-                sentences = f.readlines()
+                label = -1
+                if file.split("/")[1] == "pos": label = self.POS
+                elif file.split("/")[1] == "neg": label = self.NEG
 
-            for sentence in sentences:
-                if clean_tokens: tokens += self._tokenize_clean(sentence)
-                else: 
-                    for token in sentence.split(): tokens.append(token)
+                data.append({
+                    self.RAW: f.read(),
+                    self.LABEL: label
+                })
         
-        return tokens
+        return data
+            
+    def _tokenize(self, data, max_seq_len=MAX_SEQ_LEN):
+        """
+        Here we use nltk to tokenize data. There are many other possibilities. We also truncate the
+        sequences so that the training time and memory is more manageable. You can think of truncation
+        as making a decision only looking at the first X words.
 
-    def get_train_file_tokens(self, clean_tokens=False):
-        self._get_file_tokens(self.train_files_list, clean_tokens)
-    
-    def get_dev_file_tokens(self, clean_tokens=False):
-        self._get_file_tokens(self.dev_files_list, clean_tokens)
-    
-    def get_test_file_tokens(self, clean_tokens=False):
-        self._get_file_tokens(self.test_files_list, clean_tokens)
+        Reference: CSE-447 Section AB
+        """
+        for example in data:
+            example[self.TEXT] = []
+            for sent in nltk.sent_tokenize(example[self.RAW]):
+                example[self.TEXT].extend(nltk.word_tokenize(sent))
+            if max_seq_len >= 0:
+                example[self.TEXT] = example[self.TEXT][:max_seq_len]
 
+    def pre_process_data(self):
+        # Create a dictionary with labels and raw text for each dataset
+        self.train_dataset, self.dev_dataset, self.test_dataset = [], [], []
+        self.RAW, self.LABEL, self.TEXT = "raw", "label", "text"
+        self.POS, self.NEG = 1, 0
+
+        # Create a list of information for file to parse
+        self.train_dataset = self._create_dataset(self.train_files_list)
+        self.dev_dataset = self._create_dataset(self.dev_files_list)
+        self.test_dataset = self._create_dataset(self.test_files_list)
+
+        # Tokenize the all the 'raw' sentences
+        for data in (self.train_dataset, self.dev_dataset, self.test_dataset):
+            self._tokenize(data)
+
+        # Map the vocab to an index
+        self.token_to_index = self._create_vocab(self.train_dataset)
+
+        for data in (self.train_dataset, self.dev_dataset, self.test_dataset):
+            self._apply_vocab(data)
+    
+    def get_token_to_index_mapping(self):
+        return self.token_to_index
+    
+    def get_train_data(self):
+        return self.train_dataset
+    
+    def get_dev_data(self):
+        return self.dev_dataset
+    
+    def get_test_data(self):
+        return self.test_dataset
 
 def word_embedding_questions(glove, output_file):
 
@@ -161,20 +234,24 @@ def word_embedding_questions(glove, output_file):
     for w1, w2, w3 in word_analogy_list:
         output_file.write(f"{w1} : {w2} :: {w3} : {glove.get_word_analogy_closest_word(w1, w2, w3, num_closest_words=_num_closest_words)}\n")
 
+def sentiment_classification(output_file):
+    cmr = CornellMovieReviewFiles()
+    cmr.pre_process_data()
+    
+    token_to_index_mapping = cmr.get_token_to_index_mapping()
+    train_data, dev_data, test_data = cmr.get_train_data(), cmr.get_dev_data(), cmr.get_test_data()
+
 if __name__ == '__main__':
-    glove = GloVeWordEmbeddings('glove.42B.300d.txt', 300)
+    # glove = GloVeWordEmbeddings('glove.42B.300d.txt', 300)
 
     output_file_name = "output.txt"
     output_file = open(output_file_name, "w")
 
     # Question 3.1 and 3.2
-    word_embedding_questions(glove, output_file)
+    # word_embedding_questions(glove, output_file)
 
     # Question 3.3
-    # cmr = CornellMovieReviewFiles()
-    # cmr.get_test_file_tokens(clean_tokens=False)
-    # cmr.get_test_file_tokens(clean_tokens=True)
-    
-    output_file.close()
+    sentiment_classification(output_file_name)
+
 
     print(f"Done! Check {output_file_name} for details.")

@@ -10,6 +10,9 @@ import random
 import re
 from collections import Counter
 import argparse
+import tarfile
+import tempfile
+import urllib.request
 
 # Import special libraries
 import numpy as np
@@ -23,10 +26,12 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
+
 # Hyperparameters
 MAX_SEQ_LEN = -1  # -1 for no truncation
 UNK_THRESHOLD = 5
 BATCH_SIZE = 128
+# BATCH_SIZE = 2
 N_EPOCHS = 20
 LEARNING_RATE = 1e-3
 EMBEDDING_DIM = 128
@@ -38,16 +43,25 @@ L_RAW, L_LABEL, L_TOKENS = "raw", "label", "text"
 PAD = "@@PAD@@"
 UNK = "@@UNK@@"
 
+def seed_everything(seed=1):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+
 class GloVeWordEmbeddings():
     def __init__(self, glove_file_path, num_dims):
+        self.num_dims = num_dims
 
         if not os.path.exists(glove_file_path):
             print("Error ... Not a valid glove path")
             return
         
-        self.embeddings_dict = {}
+        self.embeddings_dict = {
+            PAD: np.random.normal(size=(num_dims, )),
+            UNK: np.random.normal(size=(num_dims, ))
+        }
 
-        max_words = 10000
         with open(glove_file_path, 'r', encoding="utf-8") as f:
             for i, line in enumerate(f):
                 values = line.split()
@@ -58,7 +72,18 @@ class GloVeWordEmbeddings():
                 
                 self.embeddings_dict[word] = vector
 
-                # if i == max_words: break
+        self.vocab = list(self.embeddings_dict.keys())
+        
+        self.token_to_idx = {PAD: 0, UNK: 1}
+        idx = 2
+        for token in self.vocab:
+            if token not in self.token_to_idx.keys():
+                self.token_to_idx[token] = idx
+                idx += 1
+    
+    def get_tokens_to_idx(self):
+        return self.token_to_idx
+        # return self.embeddings_dict
 
     def _get_cosine_similarity(self, vecA: np.array, vecB: np.array):
         return np.dot(vecA, vecB) / (np.linalg.norm(vecA) * np.linalg.norm(vecB))
@@ -82,8 +107,10 @@ class GloVeWordEmbeddings():
         if embedding.size == 0:
             print(f"{word} does not exist in the embeddings.")
             return []
-        
-        return self._get_closest_words(embedding)[1:num_closest_words+1]
+        closest_words = self._get_closest_words(embedding)
+        for w in [word, PAD, UNK]: closest_words.remove(w)
+
+        return closest_words[:num_closest_words]
     
     def get_word_analogy_closest_word(self, w1, w2, w3, num_closest_words=1):
         e1 = self._get_embedding_for_word(w1)
@@ -94,10 +121,90 @@ class GloVeWordEmbeddings():
             print(f"{w1}:{e1.size}  {w2}:{e2.size}  {w3}:{e3.size}")
             return []
 
-        embedding = e1 - e2 + e3
+        embedding = e2 - e1 + e3
         closest_words = self._get_closest_words(embedding)
-        for w in [w1, w2, w3]: closest_words.remove(w)
+        for w in [w1, w2, w3, PAD, UNK]: closest_words.remove(w)
         return closest_words[:num_closest_words]
+
+class IMDBMovieReviews():
+    def __init__(self):
+        return
+
+    def download_data(self):
+        """
+        A function to download and uncompress the imdb data. You don't have to understand anything here.
+        """
+
+        def extract_data(dir, split):
+            data = []
+            for label in ("pos", "neg"):
+                label_dir = os.path.join(dir, "aclImdb", split, label)
+                files = sorted(os.listdir(label_dir))
+                for file in files:
+                    filepath = os.path.join(label_dir, file)
+                    with open(filepath, encoding="UTF-8") as f:
+                        data.append({"raw": f.read(), "label": label})
+            return data
+
+        url = "http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
+        stream = urllib.request.urlopen(url)
+        tar = tarfile.open(fileobj=stream, mode="r|gz")
+        with tempfile.TemporaryDirectory() as td:
+            tar.extractall(path=td)
+            train_data = extract_data(td, "train")
+            test_data = extract_data(td, "test")
+            return train_data, test_data
+
+
+    def split_data(self, train_data, num_split=2000):
+        """Splits the training data into training and development sets."""
+        random.shuffle(train_data)
+        return train_data[:-num_split], train_data[-num_split:]
+
+
+    def tokenize(self, data, max_seq_len=MAX_SEQ_LEN):
+        """
+        Here we use nltk to tokenize data. There are many othe possibilities. We also truncate the
+        sequences so that the training time and memory is more manageable. You can think of truncation
+        as making a decision only looking at the first X words.
+        """
+        for example in data:
+            example["text"] = []
+            for sent in nltk.sent_tokenize(example["raw"]):
+                example["text"].extend(nltk.word_tokenize(sent))
+            if max_seq_len >= 0:
+                example["text"] = example["text"][:max_seq_len]
+
+
+    def create_vocab(self, data, unk_threshold=UNK_THRESHOLD):
+        """
+        Creates a vocabulary with tokens that have frequency above unk_threshold and assigns each token
+        a unique index, including the special tokens.
+        """
+        counter = Counter(token for example in data for token in example["text"])
+        vocab = {token for token in counter if counter[token] > unk_threshold}
+        print(f"Vocab size: {len(vocab) + 2}")  # add the special tokens
+        print(f"Most common tokens: {counter.most_common(10)}")
+        token_to_idx = {PAD: 0, UNK: 1}
+        for token in vocab:
+            token_to_idx[token] = len(token_to_idx)
+        return token_to_idx
+
+
+    def apply_vocab(self, data, token_to_idx):
+        """
+        Applies the vocabulary to the data and maps the tokenized sentences to vocab indices as the
+        model input.
+        """
+        for example in data:
+            example["text"] = [token_to_idx.get(token, token_to_idx[UNK]) for token in example["text"]]
+
+
+    def apply_label_map(self, data, label_to_idx):
+        """Converts string labels to indices."""
+        for example in data:
+            example["label"] = label_to_idx[example["label"]]
+
 
 class CornellMovieReviewFiles():
     def __init__(self, 
@@ -190,7 +297,7 @@ class CornellMovieReviewFiles():
             if max_seq_len >= 0:
                 review[L_TOKENS] = review[L_TOKENS][:max_seq_len]
 
-    def pre_process_data(self):
+    def pre_process_data(self, _token_to_idx=None):
         # Create a dictionary with labels and raw text for each dataset
         self.train_dataset, self.dev_dataset, self.test_dataset = [], [], []
         self.POS, self.NEG = 1, 0
@@ -205,7 +312,10 @@ class CornellMovieReviewFiles():
             self._tokenize(data)
 
         # Map the vocab to an index
-        self.token_to_index = self._create_vocab(self.train_dataset)
+        self.token_to_index = _token_to_idx
+        if not _token_to_idx:
+            # Only build vocab from current vocab, if not vector embeddings specified
+            self.token_to_index = self._create_vocab(self.train_dataset)
 
         for data in (self.train_dataset, self.dev_dataset, self.test_dataset):
             self._apply_vocab(data)
@@ -307,7 +417,7 @@ class SequenceClassifier(nn.Module):
 
 def word_embedding_questions(glove, output_file):
 
-    _num_closest_words = 1
+    _num_closest_words = 3
 
     output_file.write(f"*********Question 3.1*********\n")
 
@@ -346,12 +456,39 @@ def evaluate(model, dataloader, device):
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-def sentiment_classification(output_file):
-    cmr = CornellMovieReviewFiles()
-    cmr.pre_process_data()
+def sentiment_classification(glove, output_file):
+    # cmr = CornellMovieReviewFiles()
+    # cmr.pre_process_data(_token_to_idx=glove.get_tokens_to_idx())
+    # cmr.pre_process_data()
+    # token_to_index_mapping = cmr.get_token_to_index_mapping()
+    # train_data, dev_data, test_data = cmr.get_train_data(), cmr.get_dev_data(), cmr.get_test_data()
+
+    imdb = IMDBMovieReviews()
+    print("Downloading data")
+    train_data, test_data = imdb.download_data()
+    train_data, dev_data = imdb.split_data(train_data)
+    print(f"Data sample: {train_data[:3]}")
+    print(f"train {len(train_data)}, dev {len(dev_data)}, test {len(test_data)}")
+
+    print("Processing data")
+    for data in (train_data, dev_data, test_data):
+        imdb.tokenize(data)
+    # Here we only use the training data to create the vocabulary because
+    # (1) we shouldn't look at the test set; and
+    # (2) we want the dev set to accurately reflect the test set performance.
+    # There are people who do other things.
+    token_to_index_mapping = imdb.create_vocab(train_data)
+    label_to_idx = {"neg": 0, "pos": 1}
+    for data in (train_data, dev_data, test_data):
+        imdb.apply_vocab(data, token_to_index_mapping)
+        imdb.apply_label_map(data, label_to_idx)
+
+    import json
+    # with open("token_to_idx.json", "w") as outfile:  
+    #     json.dump(glove.get_tokens_to_idx(), outfile) 
     
-    token_to_index_mapping = cmr.get_token_to_index_mapping()
-    train_data, dev_data, test_data = cmr.get_train_data(), cmr.get_dev_data(), cmr.get_test_data()
+    # with open("dev_data.json", "w") as outfile:  
+    #     json.dump(dev_data, outfile) 
 
     pad_idx = token_to_index_mapping[PAD]
     label_to_idx = {"neg": 0, "pos": 1}
@@ -396,16 +533,18 @@ if __name__ == '__main__':
     parser.add_argument("-g", "--word-emb", dest="word_embs", type=str, required=True)
     args = parser.parse_args()
 
-    glove = GloVeWordEmbeddings(args.word_embs, 300)
+    seed_everything()
+
+    glove = GloVeWordEmbeddings(args.word_embs, int((args.word_embs.split(".")[2]).split("d")[0]))
 
     output_file_name = "output.txt"
     output_file = open(output_file_name, "w")
 
     # Question 3.1 and 3.2
-    word_embedding_questions(glove, output_file)
+    # word_embedding_questions(glove, output_file)
 
     # Question 3.3
-    # sentiment_classification(output_file_name)
+    sentiment_classification(glove, output_file_name)
 
     print(f"Done! Check {output_file_name} for details.")
 

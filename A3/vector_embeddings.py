@@ -34,7 +34,7 @@ BATCH_SIZE = 128
 # BATCH_SIZE = 2
 N_EPOCHS = 20
 LEARNING_RATE = 1e-3
-EMBEDDING_DIM = 128
+EMBEDDING_DIM = 50
 HIDDEN_DIM = 256
 N_RNN_LAYERS = 2
 
@@ -82,8 +82,8 @@ class GloVeWordEmbeddings():
                 idx += 1
     
     def get_tokens_to_idx(self):
-        return self.token_to_idx
-        # return self.embeddings_dict
+        # return self.token_to_idx
+        return self.embeddings_dict
 
     def _get_cosine_similarity(self, vecA: np.array, vecB: np.array):
         return np.dot(vecA, vecB) / (np.linalg.norm(vecA) * np.linalg.norm(vecB))
@@ -182,14 +182,21 @@ class IMDBMovieReviews():
         a unique index, including the special tokens.
         """
         counter = Counter(token for example in data for token in example["text"])
-        vocab = {token for token in counter if counter[token] > unk_threshold}
-        print(f"Vocab size: {len(vocab) + 2}")  # add the special tokens
+        self.vocab = {token for token in counter if counter[token] > unk_threshold}
+        print(f"Vocab size: {len(self.vocab) + 2}")  # add the special tokens
         print(f"Most common tokens: {counter.most_common(10)}")
         token_to_idx = {PAD: 0, UNK: 1}
-        for token in vocab:
+        for token in self.vocab:
             token_to_idx[token] = len(token_to_idx)
         return token_to_idx
 
+    def get_embeds(self, token_to_index_mapping, token_to_glove, dim):
+        weights_matrix = np.zeros((len(token_to_index_mapping), dim))
+        print(weights_matrix.size)
+        for word, i in token_to_index_mapping.items():
+            weights_matrix[i] = token_to_glove.get(word, np.random.normal(size=(dim, )))
+        print(weights_matrix.size)
+        return weights_matrix
 
     def apply_vocab(self, data, token_to_idx):
         """
@@ -204,7 +211,6 @@ class IMDBMovieReviews():
         """Converts string labels to indices."""
         for example in data:
             example["label"] = label_to_idx[example["label"]]
-
 
 class CornellMovieReviewFiles():
     def __init__(self, 
@@ -364,12 +370,14 @@ class SentimentDataset(Dataset):
         ]
 
 class SequenceClassifier(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, n_labels, n_rnn_layers, pad_idx):
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, n_labels, n_rnn_layers, pad_idx, embeds):
         super().__init__()
 
         self.pad_idx = pad_idx
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.embedding.weight.data.copy_(torch.from_numpy(embeds))
+        self.embedding.weight.requires_grad = False
         self.rnn = nn.GRU(
             embedding_dim, hidden_dim, num_layers=n_rnn_layers, batch_first=True, bidirectional=True
         )
@@ -478,11 +486,13 @@ def sentiment_classification(glove, output_file):
     # (2) we want the dev set to accurately reflect the test set performance.
     # There are people who do other things.
     token_to_index_mapping = imdb.create_vocab(train_data)
+    token_to_glove_mapping = glove.get_tokens_to_idx()
+    embeds = imdb.get_embeds(token_to_index_mapping, token_to_glove_mapping, 50)
     label_to_idx = {"neg": 0, "pos": 1}
     for data in (train_data, dev_data, test_data):
         imdb.apply_vocab(data, token_to_index_mapping)
         imdb.apply_label_map(data, label_to_idx)
-
+    
     import json
     # with open("token_to_idx.json", "w") as outfile:  
     #     json.dump(glove.get_tokens_to_idx(), outfile) 
@@ -492,6 +502,9 @@ def sentiment_classification(glove, output_file):
 
     pad_idx = token_to_index_mapping[PAD]
     label_to_idx = {"neg": 0, "pos": 1}
+
+    print(len(token_to_index_mapping))
+    print(embeds.size)
     
     # Create instances of dataset classes
     train_dataset = SentimentDataset(train_data, pad_idx)
@@ -510,7 +523,7 @@ def sentiment_classification(glove, output_file):
     )
 
     model = SequenceClassifier(
-        len(token_to_index_mapping), EMBEDDING_DIM, HIDDEN_DIM, len(label_to_idx), N_RNN_LAYERS, pad_idx
+        len(token_to_index_mapping), EMBEDDING_DIM, HIDDEN_DIM, len(label_to_idx), N_RNN_LAYERS, pad_idx, embeds
     )
     print(f"Model has {count_parameters(model)} parameters.")
 

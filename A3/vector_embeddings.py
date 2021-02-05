@@ -4,41 +4,36 @@ Author: Apoorv Sharma
 Description:
 '''
 
-# Import common required python files
+import argparse
 import os
 import random
 import re
-from collections import Counter
-import argparse
 import tarfile
 import tempfile
+import time
 import urllib.request
-
-# Import special libraries
-import numpy as np
+from collections import Counter
 
 import nltk
-nltk.download('punkt')
-
+import numpy as np
 import torch
-from torch import nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch import nn
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
+nltk.download('punkt')
 
 # Hyperparameters
-MAX_SEQ_LEN = -1  # -1 for no truncation
+MAX_SEQ_LEN = 20000  # -1 for no truncation
 UNK_THRESHOLD = 5
 BATCH_SIZE = 128
-# BATCH_SIZE = 2
-N_EPOCHS = 20
+N_EPOCHS = 7
 LEARNING_RATE = 1e-3
-EMBEDDING_DIM = 50
 HIDDEN_DIM = 256
 N_RNN_LAYERS = 2
 
-# Data cleaning parms
+# Data cleaning variables
 L_RAW, L_LABEL, L_TOKENS = "raw", "label", "text"
 PAD = "@@PAD@@"
 UNK = "@@UNK@@"
@@ -51,17 +46,22 @@ def seed_everything(seed=1):
 
 class GloVeWordEmbeddings():
     def __init__(self, glove_file_path, num_dims):
+        # The number of dimensions contained in the glove vector embeddings
         self.num_dims = num_dims
 
+        # Ensure we have a valid file
         if not os.path.exists(glove_file_path):
-            print("Error ... Not a valid glove path")
+            print("Error! Not a valid glove path")
             return
         
-        self.embeddings_dict = {
+        self.token_to_embedding = {
             PAD: np.random.normal(size=(num_dims, )),
             UNK: np.random.normal(size=(num_dims, ))
         }
 
+        ''' Parse file and create the following map:
+            word -> vector embedding
+        '''
         with open(glove_file_path, 'r', encoding="utf-8") as f:
             for i, line in enumerate(f):
                 values = line.split()
@@ -70,30 +70,23 @@ class GloVeWordEmbeddings():
                 word = values[0]
                 vector = np.asarray(values[1:], "float32")
                 
-                self.embeddings_dict[word] = vector
-
-        self.vocab = list(self.embeddings_dict.keys())
-        
-        self.token_to_idx = {PAD: 0, UNK: 1}
-        idx = 2
-        for token in self.vocab:
-            if token not in self.token_to_idx.keys():
-                self.token_to_idx[token] = idx
-                idx += 1
+                self.token_to_embedding[word] = vector
     
-    def get_tokens_to_idx(self):
-        # return self.token_to_idx
-        return self.embeddings_dict
+    def get_token_to_embedding(self):
+        return self.token_to_embedding
+    
+    def get_num_dims(self):
+        return self.num_dims
 
     def _get_cosine_similarity(self, vecA: np.array, vecB: np.array):
         return np.dot(vecA, vecB) / (np.linalg.norm(vecA) * np.linalg.norm(vecB))
 
     def _get_closest_words(self, embedding):
-        return sorted(self.embeddings_dict.keys(), key=lambda w: self._get_cosine_similarity(self.embeddings_dict[w], embedding), reverse=True)
+        return sorted(self.token_to_embedding.keys(), key=lambda w: self._get_cosine_similarity(self.token_to_embedding[w], embedding), reverse=True)
     
     def _get_embedding_for_word(self, word: str) -> np.array:
-        if word in self.embeddings_dict.keys():
-            return self.embeddings_dict[word]
+        if word in self.token_to_embedding.keys():
+            return self.token_to_embedding[word]
         return np.array([])
 
     def get_x_closest_words(self, word, num_closest_words=1) -> list: 
@@ -112,7 +105,7 @@ class GloVeWordEmbeddings():
 
         return closest_words[:num_closest_words]
     
-    def get_word_analogy_closest_word(self, w1, w2, w3, num_closest_words=1):
+    def get_word_analogy_closest_words(self, w1, w2, w3, num_closest_words=1):
         e1 = self._get_embedding_for_word(w1)
         e2 = self._get_embedding_for_word(w2)
         e3 = self._get_embedding_for_word(w3)
@@ -123,18 +116,19 @@ class GloVeWordEmbeddings():
 
         embedding = e2 - e1 + e3
         closest_words = self._get_closest_words(embedding)
-        for w in [w1, w2, w3, PAD, UNK]: closest_words.remove(w)
+        for w in [w1, w2, w3, PAD, UNK]: closest_words.remove(w) # We dont want the have the same words in the output
         return closest_words[:num_closest_words]
 
 class IMDBMovieReviews():
+    '''
+    This code the creation and parsing of this dataset has been taken from
+    CSE 447 (UW) NLP course material. 
+    '''
+
     def __init__(self):
         return
 
     def download_data(self):
-        """
-        A function to download and uncompress the imdb data. You don't have to understand anything here.
-        """
-
         def extract_data(dir, split):
             data = []
             for label in ("pos", "neg"):
@@ -143,7 +137,7 @@ class IMDBMovieReviews():
                 for file in files:
                     filepath = os.path.join(label_dir, file)
                     with open(filepath, encoding="UTF-8") as f:
-                        data.append({"raw": f.read(), "label": label})
+                        data.append({L_RAW: f.read(), L_LABEL: label})
             return data
 
         url = "http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
@@ -155,146 +149,16 @@ class IMDBMovieReviews():
             test_data = extract_data(td, "test")
             return train_data, test_data
 
-
     def split_data(self, train_data, num_split=2000):
         """Splits the training data into training and development sets."""
         random.shuffle(train_data)
         return train_data[:-num_split], train_data[-num_split:]
 
-
     def tokenize(self, data, max_seq_len=MAX_SEQ_LEN):
-        """
-        Here we use nltk to tokenize data. There are many othe possibilities. We also truncate the
-        sequences so that the training time and memory is more manageable. You can think of truncation
-        as making a decision only looking at the first X words.
-        """
-        for example in data:
-            example["text"] = []
-            for sent in nltk.sent_tokenize(example["raw"]):
-                example["text"].extend(nltk.word_tokenize(sent))
-            if max_seq_len >= 0:
-                example["text"] = example["text"][:max_seq_len]
-
-
-    def create_vocab(self, data, unk_threshold=UNK_THRESHOLD):
-        """
-        Creates a vocabulary with tokens that have frequency above unk_threshold and assigns each token
-        a unique index, including the special tokens.
-        """
-        counter = Counter(token for example in data for token in example["text"])
-        self.vocab = {token for token in counter if counter[token] > unk_threshold}
-        print(f"Vocab size: {len(self.vocab) + 2}")  # add the special tokens
-        print(f"Most common tokens: {counter.most_common(10)}")
-        token_to_idx = {PAD: 0, UNK: 1}
-        for token in self.vocab:
-            token_to_idx[token] = len(token_to_idx)
-        return token_to_idx
-
-    def get_embeds(self, token_to_index_mapping, token_to_glove, dim):
-        weights_matrix = np.zeros((len(token_to_index_mapping), dim))
-        print(weights_matrix.size)
-        for word, i in token_to_index_mapping.items():
-            weights_matrix[i] = token_to_glove.get(word, np.random.normal(size=(dim, )))
-        print(weights_matrix.size)
-        return weights_matrix
-
-    def apply_vocab(self, data, token_to_idx):
-        """
-        Applies the vocabulary to the data and maps the tokenized sentences to vocab indices as the
-        model input.
-        """
-        for example in data:
-            example["text"] = [token_to_idx.get(token, token_to_idx[UNK]) for token in example["text"]]
-
-
-    def apply_label_map(self, data, label_to_idx):
-        """Converts string labels to indices."""
-        for example in data:
-            example["label"] = label_to_idx[example["label"]]
-
-class CornellMovieReviewFiles():
-    def __init__(self, 
-                folder_name='txt_sentoken', pos_dir_name = 'pos', neg_dir_name = 'neg',\
-                train_percent = 60, dev_percent = 20\
-    ):
-
-        self.POS_DIR_PATH = os.path.join(folder_name, pos_dir_name)
-        self.NEG_DIR_PATH = os.path.join(folder_name, neg_dir_name)
-
-        # Combine all paths from positive and negative reviews
-        pos_files_list = [os.path.join(self.POS_DIR_PATH, file_name) for file_name in os.listdir(self.POS_DIR_PATH)]
-        neg_files_list = [os.path.join(self.NEG_DIR_PATH, file_name) for file_name in os.listdir(self.NEG_DIR_PATH)]
-        
-        movie_review_file_list = pos_files_list + neg_files_list
-        random.shuffle(movie_review_file_list)
-
-        # How many files will be there in each set ?
-        NUM_FILES = len(movie_review_file_list)
-        NUM_TRAIN_FILES = int(NUM_FILES * (train_percent / 100))
-        NUM_DEV_FILES = int(NUM_FILES * (dev_percent / 100))
-        NUM_TEST_FILES = NUM_FILES - (NUM_TRAIN_FILES + NUM_DEV_FILES)
-
-        self.train_files_list, self.dev_files_list, self.test_files_list = [], [], []
-
-        # Generate a list of test files
-        random_files_index = random.sample(range(len(movie_review_file_list)), NUM_TRAIN_FILES)
-        self.train_files_list = [movie_review_file_list[i] for i in random_files_index] # train files list
-
-        # Generate a list of dev files
-        for index in sorted(random_files_index, reverse=True): del movie_review_file_list[index]
-        random_files_index = random.sample(range(len(movie_review_file_list)), NUM_DEV_FILES)
-        self.dev_files_list = [movie_review_file_list[i] for i in random_files_index] # train files list
-
-        for index in sorted(random_files_index, reverse=True): del movie_review_file_list[index]
-        self.test_files_list = movie_review_file_list[:]
-
-    def _apply_vocab(self, data):
-        """
-        Applies the vocabulary to the data and maps the tokenized sentences to vocab indices as the
-        model input.
-        """
-        for review in data:
-            review[L_TOKENS] = [self.token_to_index.get(token, self.token_to_index[UNK]) for token in review[L_TOKENS]]
-
-    def _create_vocab(self, data, unk_threshold=UNK_THRESHOLD):
-        """
-        Creates a vocabulary with tokens that have frequency above unk_threshold and assigns each token
-        a unique index, including the special tokens.
-        """
-        counter = Counter(token for review in data for token in review[L_TOKENS])
-        vocab = {token for token in counter if counter[token] > unk_threshold}
-        # print(f"Vocab size: {len(vocab) + 2}")  # add the special tokens
-        # print(f"Most common tokens: {counter.most_common(10)}")
-        token_to_idx = {PAD: 0, UNK: 1}
-        for token in vocab:
-            token_to_idx[token] = len(token_to_idx)
-        return token_to_idx
-
-    def _create_dataset(self, files_list):
-
-        data = []
-        for file in files_list:
-            
-            # Read the file to analyze
-            with open(file) as f:
-                label = -1
-                if file.split("/")[1] == "pos": label = self.POS
-                elif file.split("/")[1] == "neg": label = self.NEG
-
-                data.append({
-                    L_RAW: f.read(),
-                    L_LABEL: label
-                })
-        
-        return data
-            
-    def _tokenize(self, data, max_seq_len=MAX_SEQ_LEN):
         """
         Here we use nltk to tokenize data. There are many other possibilities. We also truncate the
         sequences so that the training time and memory is more manageable. You can think of truncation
         as making a decision only looking at the first X words.
-
-        Reference: CSE-447 Section AB
         """
         for review in data:
             review[L_TOKENS] = []
@@ -303,42 +167,44 @@ class CornellMovieReviewFiles():
             if max_seq_len >= 0:
                 review[L_TOKENS] = review[L_TOKENS][:max_seq_len]
 
-    def pre_process_data(self, _token_to_idx=None):
-        # Create a dictionary with labels and raw text for each dataset
-        self.train_dataset, self.dev_dataset, self.test_dataset = [], [], []
-        self.POS, self.NEG = 1, 0
+    def create_vocab(self, data, unk_threshold=UNK_THRESHOLD):
+        """
+        Creates a vocabulary with tokens that have frequency above unk_threshold and assigns each token
+        a unique index, including the special tokens.
+        """
+        counter = Counter(token for review in data for token in review[L_TOKENS])
+        self.vocab = {token for token in counter if counter[token] > unk_threshold}
+        token_to_idx = {PAD: 0, UNK: 1}
+        for token in self.vocab:
+            token_to_idx[token] = len(token_to_idx)
+        return token_to_idx
 
-        # Create a list of information for file to parse
-        self.train_dataset = self._create_dataset(self.train_files_list)
-        self.dev_dataset = self._create_dataset(self.dev_files_list)
-        self.test_dataset = self._create_dataset(self.test_files_list)
+    def get_embeds(self, token_to_index_mapping, token_to_glove, dim):
+        weights_matrix = np.zeros((len(token_to_index_mapping), dim))
+        for word, i in token_to_index_mapping.items():
+            weights_matrix[i] = token_to_glove.get(word, np.random.normal(size=(dim, )))
+        return weights_matrix
 
-        # Tokenize the all the 'raw' sentences
-        for data in (self.train_dataset, self.dev_dataset, self.test_dataset):
-            self._tokenize(data)
+    def apply_vocab(self, data, token_to_idx):
+        """
+        Applies the vocabulary to the data and maps the tokenized sentences to vocab indices as the
+        model input.
+        """
+        for review in data:
+            review[L_TOKENS] = [token_to_idx.get(token, token_to_idx[UNK]) for token in review[L_TOKENS]]
 
-        # Map the vocab to an index
-        self.token_to_index = _token_to_idx
-        if not _token_to_idx:
-            # Only build vocab from current vocab, if not vector embeddings specified
-            self.token_to_index = self._create_vocab(self.train_dataset)
 
-        for data in (self.train_dataset, self.dev_dataset, self.test_dataset):
-            self._apply_vocab(data)
-    
-    def get_token_to_index_mapping(self):
-        return self.token_to_index
-    
-    def get_train_data(self):
-        return self.train_dataset
-    
-    def get_dev_data(self):
-        return self.dev_dataset
-    
-    def get_test_data(self):
-        return self.test_dataset
+    def apply_label_map(self, data, label_to_idx):
+        """Converts string labels to indices."""
+        for review in data:
+            review[L_LABEL] = label_to_idx[review[L_LABEL]]
 
 class SentimentDataset(Dataset):
+    '''
+    The initial code was taken from CSE 447 (UW) NLP course material.
+    It was then modified to serve the required specifications.
+    '''
+
     def __init__(self, data, pad_idx):
         data = sorted(data, key=lambda review: len(review[L_TOKENS]))
         self.texts = [review[L_TOKENS] for review in data]
@@ -370,14 +236,19 @@ class SentimentDataset(Dataset):
         ]
 
 class SequenceClassifier(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, n_labels, n_rnn_layers, pad_idx, embeds):
+    '''
+    The initial code was taken from CSE 447 (UW) NLP course material.
+    It was then modified to serve the required specifications.
+    '''
+
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, n_labels, n_rnn_layers, pad_idx, embedding_matrix, freeze=True):
         super().__init__()
 
         self.pad_idx = pad_idx
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.embedding.weight.data.copy_(torch.from_numpy(embeds))
-        self.embedding.weight.requires_grad = False
+        self.embedding.weight.data.copy_(torch.from_numpy(embedding_matrix))
+        self.embedding.weight.requires_grad = not freeze # to train or freeze the embeddings
         self.rnn = nn.GRU(
             embedding_dim, hidden_dim, num_layers=n_rnn_layers, batch_first=True, bidirectional=True
         )
@@ -395,7 +266,7 @@ class SequenceClassifier(nn.Module):
         # embedded shape: (batch_size, max_seq_len, embedding_dim)
         embedded = self.embedding(text)
         # You can pass the embeddings directly to the RNN, but as the input potentially has
-        # different lengths, how do you know when to stop unrolling the recurrence for each example?
+        # different lengths, how do you know when to stop unrolling the recurrence for each review?
         # pytorch provides a util function pack_padded_sequence that converts padded sequences with
         # potentially different lengths into a special PackedSequence object that keeps track of
         # these things. When passing a PackedSequence object into the RNN, the output will be a
@@ -407,7 +278,7 @@ class SequenceClassifier(nn.Module):
             embedded, lens.cpu(), batch_first=True, enforce_sorted=False
         )
         # nn.GRU produces two outputs: one is the per-token output and the other is per-sequence.
-        # The pers-sequence output is simiar to the last per-token output, except that it is taken
+        # The per-sequence output is similar to the last per-token output, except that it is taken
         # at all layers.
         # output (after unpacking) shape: (batch_size, max_seq_len, hidden_dim)
         # hidden shape: (n_layers * n_directions, batch_size, hidden_dim)
@@ -419,7 +290,7 @@ class SequenceClassifier(nn.Module):
         # (1) during training, pytorch provides a loss function "F.cross_entropy" that combines
         # "log_softmax + F.nll_loss" in one step. See the `train` function below.
         # (2) during evaluation, we usually only care about the class with the highest score, but
-        # not the actual probablity distribution.
+        # not the actual probability distribution.
         # shape: (batch_size, n_labels)
         return self.output(hidden)
 
@@ -437,7 +308,7 @@ def word_embedding_questions(glove, output_file):
 
     word_analogy_list = [("dog", "puppy", "cat"), ("speak", "speaker", "sing"), ("france", "french", "england"), ("france", "wine", "england")]
     for w1, w2, w3 in word_analogy_list:
-        output_file.write(f"{w1} : {w2} :: {w3} : {glove.get_word_analogy_closest_word(w1, w2, w3, num_closest_words=_num_closest_words)}\n")
+        output_file.write(f"{w1} : {w2} :: {w3} : {glove.get_word_analogy_closest_words(w1, w2, w3, num_closest_words=_num_closest_words)}\n")
 
 def train(model, dataloader, optimizer, device):
     for texts, labels in tqdm(dataloader):
@@ -459,59 +330,48 @@ def evaluate(model, dataloader, device):
             predicted = output.argmax(dim=-1)
             count += len(predicted)
             correct += (predicted == labels).sum().item()
-    print(f"Accuracy: {correct / count}")
+    
+    accuracy = (correct / count) * 100
+    print(f"Accuracy: {accuracy} %")
+
+    return accuracy
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def sentiment_classification(glove, output_file):
-    # cmr = CornellMovieReviewFiles()
-    # cmr.pre_process_data(_token_to_idx=glove.get_tokens_to_idx())
-    # cmr.pre_process_data()
-    # token_to_index_mapping = cmr.get_token_to_index_mapping()
-    # train_data, dev_data, test_data = cmr.get_train_data(), cmr.get_dev_data(), cmr.get_test_data()
-
-    imdb = IMDBMovieReviews()
+    imdb_reviews = IMDBMovieReviews()
+    
     print("Downloading data")
-    train_data, test_data = imdb.download_data()
-    train_data, dev_data = imdb.split_data(train_data)
-    print(f"Data sample: {train_data[:3]}")
-    print(f"train {len(train_data)}, dev {len(dev_data)}, test {len(test_data)}")
+
+    # Download the data and convert this into a dictionary format for each review in the dataset
+    train_data, test_data = imdb_reviews.download_data()
+    train_data, dev_data = imdb_reviews.split_data(train_data)
 
     print("Processing data")
+    
+    # Begin by coverting the text into single words
     for data in (train_data, dev_data, test_data):
-        imdb.tokenize(data)
-    # Here we only use the training data to create the vocabulary because
-    # (1) we shouldn't look at the test set; and
-    # (2) we want the dev set to accurately reflect the test set performance.
-    # There are people who do other things.
-    token_to_index_mapping = imdb.create_vocab(train_data)
-    token_to_glove_mapping = glove.get_tokens_to_idx()
-    embeds = imdb.get_embeds(token_to_index_mapping, token_to_glove_mapping, 50)
+        imdb_reviews.tokenize(data) 
+
+    # Get the metadata, used later for model creation and initialization
+    token_to_index_mapping = imdb_reviews.create_vocab(train_data)
+    token_to_glove_mapping = glove.get_token_to_embedding()
+    embedding_matrix = imdb_reviews.get_embeds(token_to_index_mapping, token_to_glove_mapping, glove.get_num_dims())
+
+    # Convert the vocab for each movie review into the mapping obtained earlier
     label_to_idx = {"neg": 0, "pos": 1}
     for data in (train_data, dev_data, test_data):
-        imdb.apply_vocab(data, token_to_index_mapping)
-        imdb.apply_label_map(data, label_to_idx)
-    
-    import json
-    # with open("token_to_idx.json", "w") as outfile:  
-    #     json.dump(glove.get_tokens_to_idx(), outfile) 
-    
-    # with open("dev_data.json", "w") as outfile:  
-    #     json.dump(dev_data, outfile) 
+        imdb_reviews.apply_vocab(data, token_to_index_mapping)
+        imdb_reviews.apply_label_map(data, label_to_idx)
 
-    pad_idx = token_to_index_mapping[PAD]
-    label_to_idx = {"neg": 0, "pos": 1}
-
-    print(len(token_to_index_mapping))
-    print(embeds.size)
-    
     # Create instances of dataset classes
+    pad_idx = token_to_index_mapping[PAD]
     train_dataset = SentimentDataset(train_data, pad_idx)
     dev_dataset = SentimentDataset(dev_data, pad_idx)
     test_dataset = SentimentDataset(test_data, pad_idx)
 
-    # Not sure what this is exactly ... ?
+    # Data load to process the data in batches
     train_dataloader = DataLoader(
         train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=train_dataset.collate_fn
     )
@@ -522,33 +382,91 @@ def sentiment_classification(glove, output_file):
         test_dataset, batch_size=BATCH_SIZE, collate_fn=test_dataset.collate_fn
     )
 
-    model = SequenceClassifier(
-        len(token_to_index_mapping), EMBEDDING_DIM, HIDDEN_DIM, len(label_to_idx), N_RNN_LAYERS, pad_idx, embeds
+    output_file.write(f"\n*********Question 3.4*********\n")
+    print("Starting Training - Frozen Vector Embeddings Model")
+    # Model creation and initialization - This model will freeze the word embeddings!
+    model_freeze = SequenceClassifier(
+        len(token_to_index_mapping), # vocab size (based on training set)
+        glove.get_num_dims(), # the number of dimensions for the vector embeddings
+        HIDDEN_DIM, 
+        len(label_to_idx), # number of outputs 
+        N_RNN_LAYERS, 
+        pad_idx, # Index to the pad the data with to make all inputs equal sizes
+        embedding_matrix, # The embedding matrix. Note: The index of this and token_to_index_mapping must align!
+        freeze = True # Wean
     )
-    print(f"Model has {count_parameters(model)} parameters.")
+    print(f"Freeze Model has {count_parameters(model_freeze)} parameters.")
 
     # Adam is just a fancier version of SGD.
-    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.Adam(model_freeze.parameters(), lr=LEARNING_RATE)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
+    model_freeze.to(device)
 
+    start_time = time.time()
+    accuracy_list = []
     print(f"Random baseline")
-    evaluate(model, dev_dataloader, device)
+    evaluate(model_freeze, dev_dataloader, device)
     for epoch in range(N_EPOCHS):
         print(f"Epoch {epoch + 1}")  # 0-based -> 1-based
-        train(model, train_dataloader, optimizer, device)
-        evaluate(model, dev_dataloader, device)
+        train(model_freeze, train_dataloader, optimizer, device)
+        accuracy_list.append(evaluate(model_freeze, dev_dataloader, device))
+    elapsed_time_fl = (time.time() - start_time)
+    output_file.write(f"Finished training in {elapsed_time_fl:.2f} seconds\n")
+    
     print(f"Test set performance")
-    evaluate(model, test_dataloader, device)
+    output_file.write(f"Dev Accuracy (Freeze Model)\n")
+    for accuracy in accuracy_list:
+        output_file.write(f"{accuracy:.2f} ")
+    output_file.write(f"\n")
+    output_file.write(f"Test Accuracy (Freeze Model): {evaluate(model_freeze, test_dataloader, device):.2f}\n")
+
+    output_file.write(f"\n*********Question 3.5*********\n")
+    print("Starting Training - Fine Tune Embeddings Model")
+    # Model creation and initialization - This model will NOT freeze the word embeddings!
+    model_finetune = SequenceClassifier(
+        len(token_to_index_mapping), # vocab size (based on training set)
+        glove.get_num_dims(), # the number of dimensions for the vector embeddings
+        HIDDEN_DIM, 
+        len(label_to_idx), # number of outputs 
+        N_RNN_LAYERS, 
+        pad_idx, # Index to the pad the data with to make all inputs equal sizes
+        embedding_matrix, # The embedding matrix. Note: The index of this and token_to_index_mapping must align!
+        freeze = False # Wean
+    )
+    print(f"Fine Tune Model has {count_parameters(model_finetune)} parameters.")
+
+    # Adam is just a fancier version of SGD.
+    optimizer = torch.optim.Adam(model_finetune.parameters(), lr=LEARNING_RATE)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model_finetune.to(device)
+
+    start_time = time.time()
+    accuracy_list = []
+    print(f"Random baseline")
+    evaluate(model_finetune, dev_dataloader, device)
+    for epoch in range(N_EPOCHS):
+        print(f"Epoch {epoch + 1}")  # 0-based -> 1-based
+        train(model_finetune, train_dataloader, optimizer, device)
+        accuracy_list.append(evaluate(model_finetune, dev_dataloader, device))
+    
+    elapsed_time_fl = (time.time() - start_time)
+    output_file.write(f"Finished training in {elapsed_time_fl:.2f} seconds\n")
+    
+    print(f"Test set performance")
+    output_file.write(f"Dev Accuracy (Fine Tune Model)")
+    for accuracy in accuracy_list:
+        output_file.write(f"{accuracy:.2f} ")
+    output_file.write(f"\n")
+    output_file.write(f"Test Accuracy (Fine Tune Model): {evaluate(model_finetune, test_dataloader, device):.2f}\n")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Vector Embeddings')
-    parser.add_argument("-g", "--word-emb", dest="word_embs", type=str, required=True)
+    parser.add_argument("-g", "--word-emb", dest="glove_path", type=str, required=True)
     args = parser.parse_args()
 
     seed_everything()
 
-    glove = GloVeWordEmbeddings(args.word_embs, int((args.word_embs.split(".")[2]).split("d")[0]))
+    glove = GloVeWordEmbeddings(args.glove_path, int((args.glove_path.split(".")[-2]).split("d")[0]))
 
     output_file_name = "output.txt"
     output_file = open(output_file_name, "w")
@@ -556,8 +474,8 @@ if __name__ == '__main__':
     # Question 3.1 and 3.2
     # word_embedding_questions(glove, output_file)
 
-    # Question 3.3
-    sentiment_classification(glove, output_file_name)
+    # Question 3.3, 3.4, 3.5
+    sentiment_classification(glove, output_file)
 
     print(f"Done! Check {output_file_name} for details.")
 

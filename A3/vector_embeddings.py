@@ -182,9 +182,13 @@ class IMDBMovieReviews():
 
     def get_embeds(self, token_to_index_mapping, token_to_glove, dim):
         weights_matrix = np.zeros((len(token_to_index_mapping), dim))
+        indices_found = []
+
         for word, i in token_to_index_mapping.items():
+            if word in token_to_glove.keys():
+                indices_found.append(i) # This gradient of these indices will get zero'd out later depending on config
             weights_matrix[i] = token_to_glove.get(word, np.random.normal(size=(dim, )))
-        return weights_matrix
+        return indices_found, weights_matrix
 
     def apply_vocab(self, data, token_to_idx):
         """
@@ -249,7 +253,7 @@ class SequenceClassifier(nn.Module):
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.embedding.weight.data.copy_(torch.from_numpy(embedding_matrix))
-        self.embedding.weight.requires_grad = not freeze # to train or freeze the embeddings
+        # self.embedding.weight.requires_grad = not freeze # to train or freeze the embeddings
         self.rnn = nn.GRU(
             embedding_dim, hidden_dim, num_layers=n_rnn_layers, batch_first=True, bidirectional=True
         )
@@ -311,13 +315,18 @@ def word_embedding_questions(glove, output_file):
     for w1, w2, w3 in word_analogy_list:
         output_file.write(f"{w1} : {w2} :: {w3} : {glove.get_word_analogy_closest_words(w1, w2, w3, num_closest_words=_num_closest_words)}\n")
 
-def train(model, dataloader, optimizer, device):
+def train(model, dataloader, optimizer, device, indices_found, word_embeddings_freeze=True):
     for texts, labels in tqdm(dataloader):
         texts, labels = texts.to(device), labels.to(device)
         output = model(texts)
         loss = F.cross_entropy(output, labels)
         model.zero_grad()
         loss.backward()
+
+        # Zero out the gradients of the word embeddings that we found
+        if word_embeddings_freeze:
+            model.embedding.weight.grad[indices_found] = 0
+
         optimizer.step()
 
 def evaluate(model, dataloader, device):
@@ -365,7 +374,7 @@ def sentiment_classification(glove, output_file):
     # Get the metadata, used later for model creation and initialization
     token_to_index_mapping = imdb_reviews.create_vocab(train_data)
     token_to_glove_mapping = glove.get_token_to_embedding()
-    embedding_matrix = imdb_reviews.get_embeds(token_to_index_mapping, token_to_glove_mapping, glove.get_num_dims())
+    indices_found, embedding_matrix = imdb_reviews.get_embeds(token_to_index_mapping, token_to_glove_mapping, glove.get_num_dims())
 
     # Convert the vocab for each movie review into the mapping obtained earlier
     label_to_idx = {"neg": 0, "pos": 1}
@@ -416,7 +425,7 @@ def sentiment_classification(glove, output_file):
     evaluate(model_freeze, dev_dataloader, device)
     for epoch in range(N_EPOCHS):
         print(f"Epoch {epoch + 1}")  # 0-based -> 1-based
-        train(model_freeze, train_dataloader, optimizer, device)
+        train(model_freeze, train_dataloader, optimizer, device, indices_found, word_embeddings_freeze=True)
         accuracy_list.append(evaluate(model_freeze, dev_dataloader, device)[0])
     elapsed_time_fl = (time.time() - start_time)
     output_file.write(f"Finished training in {elapsed_time_fl:.2f} seconds\n")
@@ -456,7 +465,7 @@ def sentiment_classification(glove, output_file):
     evaluate(model_finetune, dev_dataloader, device)
     for epoch in range(N_EPOCHS):
         print(f"Epoch {epoch + 1}")  # 0-based -> 1-based
-        train(model_finetune, train_dataloader, optimizer, device)
+        train(model_finetune, train_dataloader, optimizer, device, indices_found, word_embeddings_freeze=False)
         accuracy_list.append(evaluate(model_finetune, dev_dataloader, device)[0])
     
     elapsed_time_fl = (time.time() - start_time)

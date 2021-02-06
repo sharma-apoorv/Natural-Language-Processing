@@ -356,7 +356,7 @@ def evaluate(model, dataloader, device):
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-def sentiment_classification(glove, output_file):
+def sentiment_classification(args, glove, output_file):
     imdb_reviews = IMDBMovieReviews()
     
     print("Downloading data")
@@ -369,10 +369,10 @@ def sentiment_classification(glove, output_file):
     
     # Begin by coverting the text into single words
     for data in (train_data, dev_data, test_data):
-        imdb_reviews.tokenize(data) 
+        imdb_reviews.tokenize(data, max_seq_len=args.max_seq_len) 
 
     # Get the metadata, used later for model creation and initialization
-    token_to_index_mapping = imdb_reviews.create_vocab(train_data)
+    token_to_index_mapping = imdb_reviews.create_vocab(train_data, unk_threshold=args.unk_thresh)
     token_to_glove_mapping = glove.get_token_to_embedding()
     indices_found, embedding_matrix = imdb_reviews.get_embeds(token_to_index_mapping, token_to_glove_mapping, glove.get_num_dims())
 
@@ -390,13 +390,13 @@ def sentiment_classification(glove, output_file):
 
     # Data load to process the data in batches
     train_dataloader = DataLoader(
-        train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=train_dataset.collate_fn
+        train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=train_dataset.collate_fn
     )
     dev_dataloader = DataLoader(
-        dev_dataset, batch_size=BATCH_SIZE, collate_fn=dev_dataset.collate_fn
+        dev_dataset, batch_size=args.batch_size, collate_fn=dev_dataset.collate_fn
     )
     test_dataloader = DataLoader(
-        test_dataset, batch_size=BATCH_SIZE, collate_fn=test_dataset.collate_fn
+        test_dataset, batch_size=args.batch_size, collate_fn=test_dataset.collate_fn
     )
 
     output_file.write(f"\n*********Question 3.4*********\n")
@@ -405,9 +405,9 @@ def sentiment_classification(glove, output_file):
     model_freeze = SequenceClassifier(
         len(token_to_index_mapping), # vocab size (based on training set)
         glove.get_num_dims(), # the number of dimensions for the vector embeddings
-        HIDDEN_DIM, 
+        args.hidden_dimensions, 
         len(label_to_idx), # number of outputs 
-        N_RNN_LAYERS, 
+        args.rnn_layers, 
         pad_idx, # Index to the pad the data with to make all inputs equal sizes
         embedding_matrix, # The embedding matrix. Note: The index of this and token_to_index_mapping must align!
         freeze = True # Wean
@@ -415,7 +415,7 @@ def sentiment_classification(glove, output_file):
     print(f"Freeze Model has {count_parameters(model_freeze)} parameters.")
 
     # Adam is just a fancier version of SGD.
-    optimizer = torch.optim.Adam(model_freeze.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.Adam(model_freeze.parameters(), lr=args.learning_rate)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_freeze.to(device)
 
@@ -423,7 +423,7 @@ def sentiment_classification(glove, output_file):
     accuracy_list = []
     print(f"Random baseline")
     evaluate(model_freeze, dev_dataloader, device)
-    for epoch in range(N_EPOCHS):
+    for epoch in range(args.num_epochs):
         print(f"Epoch {epoch + 1}")  # 0-based -> 1-based
         train(model_freeze, train_dataloader, optimizer, device, indices_found, word_embeddings_freeze=True)
         accuracy_list.append(evaluate(model_freeze, dev_dataloader, device)[0])
@@ -445,9 +445,9 @@ def sentiment_classification(glove, output_file):
     model_finetune = SequenceClassifier(
         len(token_to_index_mapping), # vocab size (based on training set)
         glove.get_num_dims(), # the number of dimensions for the vector embeddings
-        HIDDEN_DIM, 
+        args.hidden_dimensions, 
         len(label_to_idx), # number of outputs 
-        N_RNN_LAYERS, 
+        args.rnn_layers, 
         pad_idx, # Index to the pad the data with to make all inputs equal sizes
         embedding_matrix, # The embedding matrix. Note: The index of this and token_to_index_mapping must align!
         freeze = False # Wean
@@ -455,7 +455,7 @@ def sentiment_classification(glove, output_file):
     print(f"Fine Tune Model has {count_parameters(model_finetune)} parameters.")
 
     # Adam is just a fancier version of SGD.
-    optimizer = torch.optim.Adam(model_finetune.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.Adam(model_finetune.parameters(), lr=args.learning_rate)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model_finetune.to(device)
 
@@ -463,7 +463,7 @@ def sentiment_classification(glove, output_file):
     accuracy_list = []
     print(f"Random baseline")
     evaluate(model_finetune, dev_dataloader, device)
-    for epoch in range(N_EPOCHS):
+    for epoch in range(args.num_epochs):
         print(f"Epoch {epoch + 1}")  # 0-based -> 1-based
         train(model_finetune, train_dataloader, optimizer, device, indices_found, word_embeddings_freeze=False)
         accuracy_list.append(evaluate(model_finetune, dev_dataloader, device)[0])
@@ -482,8 +482,17 @@ def sentiment_classification(glove, output_file):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Vector Embeddings')
-    parser.add_argument("-g", "--word-emb", dest="glove_path", type=str, required=True)
+    parser.add_argument("-g", "--word-emb", dest="glove_path", type=str, required=True, help='This is the path to the vector embeddings file')
+    parser.add_argument("-s", "--max-seq-len", dest="max_seq_len", type=int, default=MAX_SEQ_LEN, required=False, help='The max number of words to consider for each document in the corpus. -1 for no truncation')
+    parser.add_argument("-u", "--unk-thresh", dest="unk_thresh", type=int, default=UNK_THRESHOLD, required=False, help='All words that occur less than this number will be changed to an UNK token')
+    parser.add_argument("-b", "--batch-size", dest="batch_size", type=int, default=BATCH_SIZE, required=False, help='How many documents to process in each iteration')
+    parser.add_argument("-n", "--num-epochs", dest="num_epochs", type=int, default=N_EPOCHS, required=False, help='The number of epochs to train the model for')
+    parser.add_argument("-l", "--rate", dest="learning_rate", type=int, default=1, required=False, help='This will be / 1000')
+    parser.add_argument("-hd", "--hid-dims", dest="hidden_dimensions", type=int, default=HIDDEN_DIM, required=False, help='The number of hidden dimensions in the RNN')
+    parser.add_argument("-rl", "--rnn-layers", dest="rnn_layers", type=int, default=N_RNN_LAYERS, required=False, help='Number of layers in the RNN model')
     args = parser.parse_args()
+
+    args.learning_rate = args.learning_rate / 1000
 
     seed_everything()
 
@@ -493,10 +502,10 @@ if __name__ == '__main__':
     output_file = open(output_file_name, "w")
 
     # Question 3.1 and 3.2
-    # word_embedding_questions(glove, output_file)
+    word_embedding_questions(glove, output_file)
 
     # Question 3.3, 3.4, 3.5
-    sentiment_classification(glove, output_file)
+    sentiment_classification(args, glove, output_file)
 
     print(f"Done! Check {output_file_name} for details.")
 

@@ -18,6 +18,7 @@ import nltk
 import numpy as np
 import torch
 import torch.nn.functional as F
+from sklearn.metrics import f1_score
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
@@ -321,6 +322,8 @@ def train(model, dataloader, optimizer, device):
 
 def evaluate(model, dataloader, device):
     count = correct = 0.0
+
+    y_pred, y_labels = [], []
     with torch.no_grad():
         for texts, labels in tqdm(dataloader):
             texts, labels = texts.to(device), labels.to(device)
@@ -330,11 +333,16 @@ def evaluate(model, dataloader, device):
             predicted = output.argmax(dim=-1)
             count += len(predicted)
             correct += (predicted == labels).sum().item()
+
+            y_pred.extend(predicted.tolist())
+            y_labels.extend(labels.tolist())
     
+    f1_score_macro = f1_score(y_labels, y_pred, average='macro')
+
     accuracy = (correct / count) * 100
     print(f"Accuracy: {accuracy} %")
 
-    return accuracy
+    return accuracy, f1_score_macro
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -409,7 +417,7 @@ def sentiment_classification(glove, output_file):
     for epoch in range(N_EPOCHS):
         print(f"Epoch {epoch + 1}")  # 0-based -> 1-based
         train(model_freeze, train_dataloader, optimizer, device)
-        accuracy_list.append(evaluate(model_freeze, dev_dataloader, device))
+        accuracy_list.append(evaluate(model_freeze, dev_dataloader, device)[0])
     elapsed_time_fl = (time.time() - start_time)
     output_file.write(f"Finished training in {elapsed_time_fl:.2f} seconds\n")
     
@@ -418,7 +426,9 @@ def sentiment_classification(glove, output_file):
     for accuracy in accuracy_list:
         output_file.write(f"{accuracy:.2f} ")
     output_file.write(f"\n")
-    output_file.write(f"Test Accuracy (Freeze Model): {evaluate(model_freeze, test_dataloader, device):.2f}\n")
+    accu, f1_score = evaluate(model_freeze, test_dataloader, device)
+    output_file.write(f"Test Accuracy (Freeze Model): {accu:.2f}\n")
+    output_file.write(f"Test Macro F-1 Score (Freeze Model): {f1_score:.2f}\n")
 
     output_file.write(f"\n*********Question 3.5*********\n")
     print("Starting Training - Fine Tune Embeddings Model")
@@ -447,7 +457,7 @@ def sentiment_classification(glove, output_file):
     for epoch in range(N_EPOCHS):
         print(f"Epoch {epoch + 1}")  # 0-based -> 1-based
         train(model_finetune, train_dataloader, optimizer, device)
-        accuracy_list.append(evaluate(model_finetune, dev_dataloader, device))
+        accuracy_list.append(evaluate(model_finetune, dev_dataloader, device)[0])
     
     elapsed_time_fl = (time.time() - start_time)
     output_file.write(f"Finished training in {elapsed_time_fl:.2f} seconds\n")
@@ -457,7 +467,9 @@ def sentiment_classification(glove, output_file):
     for accuracy in accuracy_list:
         output_file.write(f"{accuracy:.2f} ")
     output_file.write(f"\n")
-    output_file.write(f"Test Accuracy (Fine Tune Model): {evaluate(model_finetune, test_dataloader, device):.2f}\n")
+    accu, f1_score = evaluate(model_finetune, test_dataloader, device)
+    output_file.write(f"Test Accuracy (ine Tune Model): {accu:.2f}\n")
+    output_file.write(f"Test Macro F-1 Score (ine Tune Model): {f1_score:.2f}\n")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Vector Embeddings')

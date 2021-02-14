@@ -12,7 +12,7 @@ A1/*.out
 A1/*.tar.gz
 
 # A3 files to ignore
-A3/tokens/*
+A3/txt_sentoken/*
 A3/glove*
 A3/*.out
 A3/*.zip

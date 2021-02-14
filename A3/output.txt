@@ -1,0 +1,13 @@
+
+*********Question 3.4*********
+Finished training in 255.95 seconds
+Dev Accuracy (Freeze Model)
+78.75 83.50 85.95 87.20 88.20 87.55 87.80 
+Test Accuracy (Freeze Model): 85.99
+Test Macro F-1 Score (Freeze Model): 0.86
+
+*********Question 3.5*********
+Finished training in 259.09 seconds
+Dev Accuracy (Fine Tune Model)81.40 87.20 89.50 89.65 88.70 88.65 88.50 
+Test Accuracy (ine Tune Model): 87.72
+Test Macro F-1 Score (ine Tune Model): 0.88

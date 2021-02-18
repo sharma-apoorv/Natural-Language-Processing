@@ -4,14 +4,12 @@ Author: Apoorv Sharma
 Description:
 '''
 
+import argparse
 import os
-import sys
 from collections import defaultdict as dd
-from pprint import pprint as pp
 
-from tqdm import tqdm
 import numpy as np
-np.set_printoptions(threshold=sys.maxsize)
+from tqdm import tqdm
 
 START = '<start>'
 MASK = '<mask>'
@@ -75,170 +73,31 @@ class BigramModel:
         return max(self.blm[w1], key=self.blm[w1].get)
 
 class Viterbi:
-    def __init__(self, file_path):
-        if not os.path.exists(file_path):
-            print(f"Path: {file_path} does not exist")
+    def __init__(self, input_file_path, output_file_path):
+        if not os.path.exists(input_file_path):
+            print(f"Path: {input_file_path} does not exist")
             return None
         
-        with open(file_path, "r") as f:
+        # Read and parse the input file
+        with open(input_file_path, "r") as f:
             l = f.readlines()
         
-        self.sentences = []
+        self.masked_sentences = []
         for sentence in l:
             sentence = sentence.split()
-            self.sentences.append(sentence)
-    
-    def bi_gram_prob(self, blm: BigramModel):
-        guessed_complete_sentences = []
-        for sentence in self.sentences:
-            guessed_sentence = sentence[:]
-            N = len(guessed_sentence)
+            self.masked_sentences.append(sentence)
 
-            for i in range(1, N):
-                w1, w2 = guessed_sentence[i-1], guessed_sentence[i]
-
-                if w2 == MASK:
-                    w2 = blm.get_max_w2(w1)
-                
-                guessed_sentence[i-1], guessed_sentence[i] = w1, w2
-            
-            guessed_complete_sentences.append(guessed_sentence)
-        
-        return guessed_complete_sentences
-    
-    def get_transition_probability(self, labels, sentence_chars):
-        R, C = len(labels), len(sentence_chars)
-        tp = np.ones((R, C))
-        tp = tp / np.sum(tp, axis=0)
-
-        return tp
-    
-    def get_emission_probability(self, blm, labels, sentence_chars):
-        R, C = len(labels), len(sentence_chars)
-        ep = np.zeros((R, C))
-
-        for j in range(1, len(sentence_chars)):
-            w1, w2 = sentence_chars[j-1], sentence_chars[j]
-            
-            # if w1 == MASK:
-            #     continue
-            
-            for label, i in labels.items():
-                ep[i][j] = blm.get_bigram_prob(label, w1)
-
-                if label == w2: #??: DO WE NEED THIS ?
-                    ep[i][j] = 1
-            
-            w2 = blm.get_index_to_labels()[np.argmax(ep, axis=0)[j]]
-            sentence_chars[j-1], sentence_chars[j] = w1, w2
-
-        return ep
-
-    def viterbi_algorithm(self, blm: BigramModel):
-        labels = blm.get_labels_to_index()
-
-        guessed_complete_sentences = []
-        for sentence in tqdm(self.sentences, desc="Running Viterbi Algorithm"):
-            guessed_sentence = sentence[:]
-            N = len(guessed_sentence)
-
-            tp = self.get_transition_probability(labels, guessed_sentence)
-            ep = self.get_emission_probability(blm, labels, guessed_sentence)
-
-            guessed_complete_sentences.append(guessed_sentence)
-        
-        return guessed_complete_sentences
-    
-    def viterbi_algorithm_2(self, blm: BigramModel):
-        labels = blm.get_labels_to_index()
-
-        tp_l = blm.get_labels_to_index()
-        tp_i = blm.get_index_to_labels()
-        
-        guessed_complete_sentences = []
-        for sentence in tqdm(self.sentences, desc="Running Viterbi Algorithm 2")[5:6]:
-            guessed_sentence = sentence[:]
-
-            R, C = len(labels), len(guessed_sentence)
-            dp = np.zeros((R, C)) #init dp array to store calculations
-
-            for i in range(R):
-                dp[i][0] = 1 # All START columns with be initilized to 1
-            
-            dp_temp = np.zeros((R, ))
-            for j in range(1, C):
-                w1, w2 = guessed_sentence[j-1], guessed_sentence[j]
-                prob = blm.get_bigram_prob(w1, w2)
-                
-                # For each label, calculate the dp probabilities
-                for i, label in enumerate(labels):
-                    dp_temp[tp_l[label]] = prob * dp[i][j-1]
-                
-                max_idx = np.argmax(dp_temp)
-                guessed_sentence[j] = tp_i[max_idx]
-                dp[i][j] = dp_temp[max_idx]
-            
     def compute_missing_characters(self, blm: BigramModel):
         states = blm.get_labels()
         complete_sentences = []
 
-        for sentence in tqdm(self.sentences, desc="Running Viterbi Algorithm"):
-            # best_path = self.viterbi_wikipedia(sentence, states, blm)
-            best_path = self.viterbi_michelle(sentence, states, blm)
+        for sentence in tqdm(self.masked_sentences, desc="Running Viterbi Algorithm"):
+            best_path = self.viterbi_algorithm(sentence, states, blm)
             complete_sentences.append(best_path)
         
         return complete_sentences
 
-    def viterbi_wikipedia(self, observation, states, blm: BigramModel):
-        sentence = observation[:]
-
-        R, C = len(states), len(sentence)
-
-        # To hold p. of each state given each sentence.
-        trellis = np.zeros((R, C))
-
-        # Determine each hidden state's p. at time 0
-        for i in range(R):
-            trellis[i][0] = 1 # initial probability of START symbol
-        
-        # and now, assuming each state's most likely prior state, k
-        for j in range(1, C):
-            for i in range(R):
-                w1, w2 = sentence[j-1], states[i]
-
-                '''
-                For each node in the prev column, the state that yields the max
-                probability
-
-                Index of this state is stored in k
-                '''
-                p_list = np.zeros((R,))
-                for k in range(R):
-                    transition_ps_to_w2 = blm.get_bigram_prob(w2, states[k]) # p(states[k] | w2)
-                    print(f"{w2} | {states[k]} = {transition_ps_to_w2}")
-                    p_list[k] = transition_ps_to_w2
-                k = np.argmax(p_list) #the max INDEX that has the largest probability
-                print(k,  states[k])
-            
-                break
-            break
-
-
-        #         trellis[i][j] = trellis[k][j-1] * blm.get_bigram_prob(states[k], w2) #fill in the largest p in trellis
-        #         print(w1, w2, k, states[k])
-            
-        # np.savetxt('test.out', trellis)
-        #     # max_char = states[np.argmax(trellis[:, j])]
-        #     # sentence[j] = max_char
-
-        # sentence_path = []
-        # for j in range(C):
-        #     k = np.argmax(trellis[:, j]) #the row INDEX with largest probability
-        #     sentence_path.append(states[k])
-        
-        # return sentence_path
-
-    def viterbi_michelle(self, observation, states, blm: BigramModel):
+    def viterbi_algorithm(self, observation, states, blm: BigramModel):
 
         sentence = observation[:]
 
@@ -340,17 +199,56 @@ class Viterbi:
         with open(file_path, "w") as f:
             f.write(s)
 
+def sanity_check_output(masked_sentences, un_masked_sentences):
+    print("Performing sanity check on output")
+
+    for masked_sentence, unmasked_sentence in zip(masked_sentences, un_masked_sentences):
+
+        # Ensure the length of 2 sentence is the same (same number of chars)
+        lm, lum = len(masked_sentence), len(unmasked_sentence)
+        if lm != lum:
+            print(f"Error! The length of the sentences do not match")
+            print(f"Masked Sentence: {masked_sentence}")
+            print(f"Unmasked Sentence: {unmasked_sentence}")
+        
+        # Ensure we only changed the <mask> characters
+        for i in range(lm):
+            c_m, c_um = masked_sentence[i], unmasked_sentence[i]
+
+            if c_m != MASK and (c_m != c_um):
+                print(f"Error! Changed a known character")
+                print(f"Changed {c_m} -> {c_um} at index: {i}")
+
+def parse_output_file(output_file_path):
+    un_masked_sentences = []
+
+    # Read in output file if it exists
+    if os.path.exists(output_file_path):
+        with open(output_file_path, "r") as f:
+            l = f.readlines()
+        for sentence in l:
+            sentence = sentence.split()
+            un_masked_sentences.append(sentence)
+    
+    return un_masked_sentences
 
 if __name__ == "__main__":
     print("NLP - A4")
 
-    # blm = BigramModel('./lm_avs.txt')
-    blm = BigramModel('./lm.txt')
+    parser = argparse.ArgumentParser(description='Viterbi Algorithm')
+    parser.add_argument("-lm", "--lang-model", dest="lang_model_path", type=str, default="./lm.txt", required=False, help='This is the path to the language model file')
+    parser.add_argument("-ip", "--input-file", dest="input_file_path", type=str, default="./15pctmasked.txt", required=False, help='This is the path to the file that contains the masked sentences')
+    parser.add_argument("-op", "--output-file", dest="output_file_path", type=str, default="./unmasked.txt", required=False, help='This is the path to file that will be output')
+    parser.add_argument("-t", "--sanity-check", dest="perform_sanity_check", action='store_true', help='Flag to indicate whether to perform sanity checking our not')
+    args = parser.parse_args()
 
-    # v = Viterbi('./15pctmasked_avs.txt')
-    v = Viterbi('./15pctmasked.txt')
+    blm = BigramModel(args.lang_model_path)
+    v = Viterbi(input_file_path=args.input_file_path, output_file_path=args.output_file_path)
 
-    # complete_sentences = v.bi_gram_prob(blm)
-    # complete_sentences = v.viterbi_algorithm(blm)
     complete_sentences = v.compute_missing_characters(blm)
-    v.write_sentences_to_file(complete_sentences, './unmasked.txt')
+    v.write_sentences_to_file(complete_sentences)
+
+    if args.perform_sanity_check:
+        sanity_check_output(v.masked_sentences, parse_output_file(args.output_file_path))
+
+

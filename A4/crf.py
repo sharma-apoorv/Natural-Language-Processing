@@ -180,11 +180,14 @@ class Viterbi:
             
     def compute_missing_characters(self, blm: BigramModel):
         states = blm.get_labels()
+        complete_sentences = []
 
-        for sentence in tqdm(self.sentences[0:1], desc="Running Viterbi Algorithm 2"):
+        for sentence in tqdm(self.sentences, desc="Running Viterbi Algorithm"):
             # best_path = self.viterbi_wikipedia(sentence, states, blm)
             best_path = self.viterbi_michelle(sentence, states, blm)
-            print(best_path)
+            complete_sentences.append(best_path)
+        
+        return complete_sentences
 
     def viterbi_wikipedia(self, observation, states, blm: BigramModel):
         sentence = observation[:]
@@ -261,18 +264,39 @@ class Viterbi:
                 
                 # Case 1: w1 and w2 are both known characters
                 if w1 != MASK and w2 != MASK:
-                    if w2 == label: trellis[i][j] = blm.get_w2_given_w1(w1, w2)
-                    back_pointer[i][j] = np.argmax(trellis[:, j-1])
+                    if w2 == label: 
+                        t1 = np.full((R-1, ), -np.inf)
+                        for k in range(R-1):
+                            prev_label = states[k]
+                            t1[k] = blm.get_w2_given_w1(w1=prev_label, w2=w2) + trellis[k][j-1]
+                        
+                        trellis[i][j] = max(t1)
+                        back_pointer[i][j] = np.argmax(t1)
+                    else:
+                        back_pointer[i][j] = np.argmax(trellis[:, j-1])
                 
                 # Case 2: curr is MASK and prev column is known
                 elif w1 != MASK and w2 == MASK:
-                    trellis[i][j] = blm.get_w2_given_w1(w1=w1, w2=label)
-                    back_pointer[i][j] = np.argmax(trellis[:, j-1])
+                    t1 = np.full((R-1, ), -np.inf)
+                    for k in range(R-1):
+                        prev_label = states[k]
+                        t1[k] = blm.get_w2_given_w1(w1=prev_label, w2=label) + trellis[k][j-1]
+                    
+                    trellis[i][j] = max(t1)
+                    back_pointer[i][j] = np.argmax(t1)
 
                 # Case 3: curr is known and prev column is MASK
                 elif w2 != MASK and w1 == MASK:
-                    if w2 == label: trellis[i][j] = blm.get_w2_given_w1(w1=label, w2=w2)
-                    back_pointer[i][j] = np.argmax(trellis[:, j-1])
+                    if w2 == label: 
+                        t1 = np.full((R-1, ), -np.inf)
+                        for k in range(R-1):
+                            prev_label = states[k]
+                            t1[k] = blm.get_w2_given_w1(w1=prev_label, w2=w2) + trellis[k][j-1]
+                        
+                        trellis[i][j] = max(t1)
+                        back_pointer[i][j] = np.argmax(t1)
+                    else:
+                        back_pointer[i][j] = np.argmax(trellis[:, j-1])
                 
                 # Case 4: w1 and w2 are both MASK characters
                 else:
@@ -284,15 +308,16 @@ class Viterbi:
                     '''
                     for k in range(R-1):
                         prev_label = states[k]
-                        t1[k] = blm.get_w2_given_w1(w1=prev_label, w2=label)                    
+                        t1[k] = blm.get_w2_given_w1(w1=prev_label, w2=label) + trellis[k][j-1]
                     trellis[i][j] = max(t1)
                     back_pointer[i][j] = np.argmax(t1)
 
         # Fill in the prob for <eos>
         trellis[R-1][C-1] = blm.get_w2_given_w1(w1=EOS, w2=EOS)
-        back_pointer[R-1][C-1] = np.argmax(trellis[:, j-1])
+        back_pointer[R-1][C-1] = np.argmax(trellis[:, C-2])
 
-        np.savetxt('back_pointer.out', back_pointer)
+        # np.savetxt('back_pointer.out', np.vstack((['header'] + sentence, np.column_stack((states, back_pointer.round(decimals=0))))), fmt="%-12s")
+        # np.savetxt('trellis.out', np.vstack((['header'] + sentence, np.column_stack((states, trellis.round(decimals=4))))), fmt="%-12s")
 
         # get the back pointers 
         guessed_sentence = [EOS]
@@ -327,5 +352,5 @@ if __name__ == "__main__":
 
     # complete_sentences = v.bi_gram_prob(blm)
     # complete_sentences = v.viterbi_algorithm(blm)
-    v.compute_missing_characters(blm)
-    # v.write_sentences_to_file(complete_sentences, './unmasked.txt')
+    complete_sentences = v.compute_missing_characters(blm)
+    v.write_sentences_to_file(complete_sentences, './unmasked.txt')

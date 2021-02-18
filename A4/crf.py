@@ -87,6 +87,8 @@ class Viterbi:
             sentence = sentence.split()
             self.masked_sentences.append(sentence)
 
+        self.output_file_path = output_file_path
+
     def compute_missing_characters(self, blm: BigramModel):
         states = blm.get_labels()
         complete_sentences = []
@@ -187,7 +189,7 @@ class Viterbi:
         
         return list(reversed(guessed_sentence))
 
-    def write_sentences_to_file(self, sentence_list, file_path):
+    def write_sentences_to_file(self, sentence_list):
         sentence_list_strings = []
         
         for sentence in sentence_list:
@@ -196,7 +198,7 @@ class Viterbi:
         
         s = '\n'.join(sentence_list_strings)
 
-        with open(file_path, "w") as f:
+        with open(self.output_file_path, "w") as f:
             f.write(s)
 
 def sanity_check_output(masked_sentences, un_masked_sentences):

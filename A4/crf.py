@@ -204,6 +204,13 @@ class Viterbi:
 def sanity_check_output(masked_sentences, un_masked_sentences):
     print("Performing sanity check on output")
 
+    # Ensure the first sentence matches the correct output:
+    correct_out = ['<start>', 'I', '<s>', 'p', 'e', '<s>', 'm', 'a', 'n', 't', 'a', 't', 'i', 'o', 'n', '<s>', 'o', 'f', '<s>', 'G', 'e', 'o', 'r', 'g', 'i', 'a', "'", "'", '<s>', 'a', 'u', 'r', 'o', 'm', 'o', 'b', 'i', 'l', 'e', '<s>', 't', 'i', 't', 'l', 'e', '<s>', 'l', 'a', 'w', '<s>', 'w', 'a', 's', '<s>', 'a', 'l', '<s>', ',', '<s>', 'h', 'e', 'c', 'o', 'm', 'm', 'e', 'n', 'd', 'e', 'd', '<s>', 'b', 'e', '<s>', 't', 'h', 'e', '<s>', 'o', 'u', 't', 'g', 'o', 'i', 'n', 'g', '<s>', 'j', 'u', 'r', 'y', '<s>', '.', '<eos>']
+    for correct_char, unmasked_char in zip(correct_out, un_masked_sentences[0]):
+        if correct_char != unmasked_char:
+            print(f'Error! Viterbi Algorithm is incorrect for sentence 1 Correct: {correct_char} : Unmasked {unmasked_char}')
+            return
+
     for masked_sentence, unmasked_sentence in zip(masked_sentences, un_masked_sentences):
 
         # Ensure the length of 2 sentence is the same (same number of chars)
@@ -252,5 +259,3 @@ if __name__ == "__main__":
 
     if args.perform_sanity_check:
         sanity_check_output(v.masked_sentences, parse_output_file(args.output_file_path))
-
-

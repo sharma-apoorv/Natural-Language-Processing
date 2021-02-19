@@ -227,7 +227,13 @@ def sanity_check_output(masked_sentences, un_masked_sentences):
             if c_m != MASK and (c_m != c_um):
                 print(f"Error! Changed a known character")
                 print(f"Changed {c_m} -> {c_um} at index: {i}")
-
+            
+            elif c_m == MASK and c_um == START:
+                print(f"Changed a masked char to <start> token!")
+                print(masked_sentence)
+                print(unmasked_sentence)
+                print("")
+            
 def parse_output_file(output_file_path):
     un_masked_sentences = []
 

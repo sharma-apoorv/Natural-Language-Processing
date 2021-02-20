@@ -6,6 +6,7 @@ Description:
 
 import argparse
 import os
+import operator
 from collections import defaultdict as dd
 
 import numpy as np
@@ -69,8 +70,8 @@ class BigramModel:
         if is_log_prob: return float('-inf')
         return 0
     
-    def get_max_w2(self, w1) -> str:
-        return max(self.blm[w1], key=self.blm[w1].get)
+    def get_max_from_key(self, w1) -> str:
+        return max(self.blm[w1].items(), key=operator.itemgetter(1))
 
 class Viterbi:
     def __init__(self, input_file_path, output_file_path):
@@ -93,7 +94,7 @@ class Viterbi:
         states = blm.get_labels()
         complete_sentences = []
 
-        for sentence in tqdm(self.masked_sentences, desc="Running Viterbi Algorithm"):
+        for sentence in tqdm(self.masked_sentences[0:1], desc="Running Viterbi Algorithm"):
             best_path = self.viterbi_algorithm(sentence, states, blm)
             complete_sentences.append(best_path)
         
@@ -103,6 +104,8 @@ class Viterbi:
 
         sentence = observation[:]
 
+        idx_to_state = blm.get_index_to_labels()
+        state_to_idx = blm.get_labels_to_index()
         R, C = len(states), len(sentence)
 
         # To hold p. of each state given each sentence.
@@ -125,16 +128,13 @@ class Viterbi:
                 
                 # Case 1: w1 and w2 are both known characters
                 if w1 != MASK and w2 != MASK:
-                    if w2 == label: 
-                        t1 = np.full((R-1, ), -np.inf)
-                        for k in range(R-1):
-                            prev_label = states[k]
-                            t1[k] = blm.get_w2_given_w1(w1=prev_label, w2=w2) + trellis[k][j-1]
-                        
-                        trellis[i][j] = max(t1)
-                        back_pointer[i][j] = np.argmax(t1)
-                    else:
-                        back_pointer[i][j] = np.argmax(trellis[:, j-1])
+                    label_idx = state_to_idx[w2]
+                    max_prev_trellis_value = max(trellis[:, j-1])
+                    max_prev_trellis_label_idx = np.argmax(trellis[:, j-1])
+
+                    trellis[label_idx][j] = max_prev_trellis_value + blm.get_w2_given_w1(w1=idx_to_state[max_prev_trellis_label_idx], w2=w2)
+                    back_pointer[label_idx][j] = max_prev_trellis_label_idx
+                    break
                 
                 # Case 2: curr is MASK and prev column is known
                 elif w1 != MASK and w2 == MASK:
@@ -172,13 +172,15 @@ class Viterbi:
                         t1[k] = blm.get_w2_given_w1(w1=prev_label, w2=label) + trellis[k][j-1]
                     trellis[i][j] = max(t1)
                     back_pointer[i][j] = np.argmax(t1)
+            
+            # break
 
         # Fill in the prob for <eos>
         trellis[R-1][C-1] = blm.get_w2_given_w1(w1=EOS, w2=EOS)
         back_pointer[R-1][C-1] = np.argmax(trellis[:, C-2])
 
-        # np.savetxt('back_pointer.out', np.vstack((['header'] + sentence, np.column_stack((states, back_pointer.round(decimals=0))))), fmt="%-12s")
-        # np.savetxt('trellis.out', np.vstack((['header'] + sentence, np.column_stack((states, trellis.round(decimals=4))))), fmt="%-12s")
+        np.savetxt('back_pointer.out', np.vstack((['header'] + sentence, np.column_stack((states, back_pointer.round(decimals=0))))), fmt="%-12s")
+        np.savetxt('trellis.out', np.vstack((['header'] + sentence, np.column_stack((states, trellis.round(decimals=4))))), fmt="%-12s")
 
         # get the back pointers 
         guessed_sentence = [EOS]
@@ -211,28 +213,28 @@ def sanity_check_output(masked_sentences, un_masked_sentences):
             print(f'Error! Viterbi Algorithm is incorrect for sentence 1 Correct: {correct_char} : Unmasked {unmasked_char}')
             return
 
-    for masked_sentence, unmasked_sentence in zip(masked_sentences, un_masked_sentences):
+    # for masked_sentence, unmasked_sentence in zip(masked_sentences, un_masked_sentences):
 
-        # Ensure the length of 2 sentence is the same (same number of chars)
-        lm, lum = len(masked_sentence), len(unmasked_sentence)
-        if lm != lum:
-            print(f"Error! The length of the sentences do not match")
-            print(f"Masked Sentence: {masked_sentence}")
-            print(f"Unmasked Sentence: {unmasked_sentence}")
+    #     # Ensure the length of 2 sentence is the same (same number of chars)
+    #     lm, lum = len(masked_sentence), len(unmasked_sentence)
+    #     if lm != lum:
+    #         print(f"Error! The length of the sentences do not match")
+    #         print(f"Masked Sentence: {masked_sentence}")
+    #         print(f"Unmasked Sentence: {unmasked_sentence}")
         
-        # Ensure we only changed the <mask> characters
-        for i in range(lm):
-            c_m, c_um = masked_sentence[i], unmasked_sentence[i]
+    #     # Ensure we only changed the <mask> characters
+    #     for i in range(lm):
+    #         c_m, c_um = masked_sentence[i], unmasked_sentence[i]
 
-            if c_m != MASK and (c_m != c_um):
-                print(f"Error! Changed a known character")
-                print(f"Changed {c_m} -> {c_um} at index: {i}")
+    #         if c_m != MASK and (c_m != c_um):
+    #             print(f"Error! Changed a known character")
+    #             print(f"Changed {c_m} -> {c_um} at index: {i}")
             
-            elif c_m == MASK and c_um == START:
-                print(f"Changed a masked char to <start> token!")
-                print(masked_sentence)
-                print(unmasked_sentence)
-                print("")
+    #         elif c_m == MASK and c_um == START:
+    #             print(f"Changed a masked char to <start> token!")
+    #             print(masked_sentence)
+    #             print(unmasked_sentence)
+    #             print("")
             
 def parse_output_file(output_file_path):
     un_masked_sentences = []

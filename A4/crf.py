@@ -176,8 +176,8 @@ class Viterbi:
         trellis[R-1][C-1] = blm.get_w2_given_w1(w1=EOS, w2=EOS)
         back_pointer[R-1][C-1] = np.argmax(trellis[:, C-2])
 
-        np.savetxt('back_pointer.out', np.vstack((['header'] + sentence, np.column_stack((states, back_pointer.round(decimals=0))))), fmt="%-12s")
-        np.savetxt('trellis.out', np.vstack((['header'] + sentence, np.column_stack((states, trellis.round(decimals=4))))), fmt="%-12s")
+        # np.savetxt('back_pointer.out', np.vstack((['header'] + sentence, np.column_stack((states, back_pointer.round(decimals=0))))), fmt="%-12s")
+        # np.savetxt('trellis.out', np.vstack((['header'] + sentence, np.column_stack((states, trellis.round(decimals=4))))), fmt="%-12s")
 
         # get the back pointers 
         guessed_sentence = [EOS]

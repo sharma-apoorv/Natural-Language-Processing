@@ -4,10 +4,8 @@ import re
 import string
 from collections import Counter, defaultdict
 
-#debug imports
-from pprint import pprint as pp
-
 import matplotlib.pyplot as plt
+
 plt.style.use('seaborn-whitegrid')
 
 SPACE_SYM = '<s>'
@@ -35,11 +33,6 @@ class BytePairEncoding:
 
         # Step 1: Append, to each word, a special <s> symbol marking the end of a word
         self.vocab, space_marked_sentences_list = self._add_word_space_symbols(sentences_list)
-
-        # def remap_keys(mapping):
-        #     return [{'key':k, 'value': v} for k, v in mapping.items()]
-        # with open('char_pairs.json', 'w') as f:
-        #     json.dump(remap_keys(self.char_pairs), f)
     
 
     def _clean_sentences(self, sentences_list):
@@ -87,6 +80,7 @@ class BytePairEncoding:
         
         return modified_vocab
     
+
     def _save_scatter_plot(self, descriptive_name, x, y):
 
         plt.scatter(x, y)
@@ -94,6 +88,7 @@ class BytePairEncoding:
         plt.xlabel('Size of Type Vocabulary')
         plt.ylabel('Length of training corpus (tokens)')
         plt.savefig(f'{descriptive_name}_bpe_scatterplot.png')
+
 
     def _get_training_corpus_length(self):
 
@@ -103,6 +98,7 @@ class BytePairEncoding:
             corpus_length += (len(merged) * v)
         
         return corpus_length
+
 
     def _save_information(self, descriptive_name, x, y, num_iters):
         with open(f"{descriptive_name}.out", 'w') as f:
@@ -124,6 +120,7 @@ class BytePairEncoding:
         
         self._save_scatter_plot(descriptive_name, x, y)
 
+
     def fit(self):
 
         with open('vocab_initial.json', 'w') as f:
@@ -132,6 +129,7 @@ class BytePairEncoding:
         x, y = [], []
 
         i = 0
+        is_frequency_one = False
         while True:
             i += 1
 
@@ -140,22 +138,26 @@ class BytePairEncoding:
             
             # Used to produce a scatter plot of the algorithm
             x.append(len(self.char_pairs))
-            # y.append(sum(self.vocab.values()))
             y.append(self._get_training_corpus_length())
-            # print(y[-1])
 
             # Indicates we are done with fitting.
             # No more merge rules can be applied here
             if not self.char_pairs: break
             
             top_char_pair = self._get_most_frequent_bigram(self.char_pairs)
+            top_pair_frequency = self.char_pairs[top_char_pair]
 
-            if self.char_pairs[top_char_pair] == 1:
+            # Track output
+            if i % 500: print(f"Current top pair frequency: {top_pair_frequency}")
+
+            if top_pair_frequency == 1 and not is_frequency_one:
                 self._save_information('frequency_one', x, y, i)
+                is_frequency_one = True
 
             self.vocab = self._merge_vocab(top_char_pair)
 
         self._save_information('frequency_zero', x, y, i)
+
 
     def _get_most_frequent_bigram(self, char_pairs):
         return max(char_pairs, key=char_pairs.get)

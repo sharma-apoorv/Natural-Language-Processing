@@ -6,6 +6,8 @@ from collections import Counter, defaultdict
 
 import matplotlib.pyplot as plt
 
+from pprint import pprint as pp
+
 plt.style.use('seaborn-whitegrid')
 
 SPACE_SYM = '<s>'
@@ -33,6 +35,7 @@ class BytePairEncoding:
 
         # Step 1: Append, to each word, a special <s> symbol marking the end of a word
         self.vocab, space_marked_sentences_list = self._add_word_space_symbols(sentences_list)
+        self.types_vocab = set()
     
 
     def _clean_sentences(self, sentences_list):
@@ -84,30 +87,35 @@ class BytePairEncoding:
     def _save_scatter_plot(self, descriptive_name, x, y):
 
         plt.scatter(x, y)
-        plt.title('BPE Alogrithm')
+        plt.title('BPE Algorithm')
         plt.xlabel('Size of Type Vocabulary')
         plt.ylabel('Length of training corpus (tokens)')
         plt.savefig(f'{descriptive_name}_bpe_scatterplot.png')
 
 
-    def _get_training_corpus_length(self):
-
+    def get_data_lengths(self):
+        type_vocab = set()
         corpus_length = 0
+
         for k, v in self.vocab.items():
             merged = k.split(" ")
+            type_vocab.update(merged)
             corpus_length += (len(merged) * v)
         
-        return corpus_length
+        self.types_vocab = self.types_vocab.union(type_vocab)
+        return len(self.types_vocab), corpus_length
 
 
     def _save_information(self, descriptive_name, x, y, num_iters):
+        xx, yy = self.get_data_lengths()
+
         with open(f"{descriptive_name}.out", 'w') as f:
             f.write(f'Number of Iterations Completed: {num_iters}\n')
-            f.write(f'Length of Types Vocab: {len(self.char_pairs)}\n')
+            f.write(f'Length of Types Vocab: {xx}\n')
             f.write(f'Frequency Sum of Types Vocab: {sum(self.char_pairs.values())}\n')
             f.write(f'Length of Training Vocab: {len(self.vocab)}\n')
             f.write(f'Frequency of Training Vocab: {sum(self.vocab.values())}\n')
-            f.write(f'Length of Training Data Under Types: {self._get_training_corpus_length()}\n')
+            f.write(f'Length of Training Data Under Types: {yy}\n')
         
         def remap_keys(mapping):
             return [{'key':k, 'value': v} for k, v in mapping.items()]
@@ -137,8 +145,9 @@ class BytePairEncoding:
             self.char_pairs = self._get_pair_counts()
             
             # Used to produce a scatter plot of the algorithm
-            x.append(len(self.char_pairs))
-            y.append(self._get_training_corpus_length())
+            xx, yy = self.get_data_lengths()
+            x.append(xx)
+            y.append(yy)
 
             # Indicates we are done with fitting.
             # No more merge rules can be applied here
@@ -148,13 +157,20 @@ class BytePairEncoding:
             top_pair_frequency = self.char_pairs[top_char_pair]
 
             # Track output
-            if i % 500: print(f"Current top pair frequency: {top_pair_frequency}")
+            if i % 1000: print(f"Current top pair frequency: {top_pair_frequency}")
 
             if top_pair_frequency == 1 and not is_frequency_one:
                 self._save_information('frequency_one', x, y, i)
                 is_frequency_one = True
 
             self.vocab = self._merge_vocab(top_char_pair)
+            
+            # print(f"Bigram to Merge: {top_char_pair}")
+            # pp(self.char_pairs)
+            # pp(self.vocab)
+            # print(self.get_data_lengths())
+            # print(self.types_vocab)
+            # print()
 
         self._save_information('frequency_zero', x, y, i)
 
